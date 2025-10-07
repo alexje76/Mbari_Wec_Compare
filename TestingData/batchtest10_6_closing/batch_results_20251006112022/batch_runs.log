@@ -1,0 +1,6 @@
+# Generated 4 simulation runs
+RunIndex, SimReturnCode, StartTime, rosbag2Filename, pblogFilename, PhysicsStep, PhysicsRTF, Seed, Duration, DoorState, ScaleFactor, BatteryState, MeanPistonPosition, UpperSpringParams, LowerSpringParams, IncWaveSpectrumType;IncWaveSpectrumParams
+0, 0, 20251006112023, results_run_0_20251006112023/rosbag2, results_run_0_20251006112023/pblog, 0.01, 11.0, 42, 3.0, closed, 0.6, 0.5, default, upper;defaults, lower;defaults, Bretschneider;Hs:2.0;Tp:14.0
+1, 0, 20251006112031, results_run_1_20251006112031/rosbag2, results_run_1_20251006112031/pblog, 0.01, 11.0, 42, 3.0, closed, 0.6, 0.5, default, upper;defaults, lower;defaults, Bretschneider;Hs:4.0;Tp:16.0
+2, 0, 20251006112036, results_run_2_20251006112036/rosbag2, results_run_2_20251006112036/pblog, 0.01, 11.0, 42, 3.0, closed, 1.0, 0.5, default, upper;defaults, lower;defaults, Bretschneider;Hs:2.0;Tp:14.0
+3, 0, 20251006112042, results_run_3_20251006112042/rosbag2, results_run_3_20251006112042/pblog, 0.01, 11.0, 42, 3.0, closed, 1.0, 0.5, default, upper;defaults, lower;defaults, Bretschneider;Hs:4.0;Tp:16.0

@@ -1,0 +1,12 @@
+duration: 3
+seed: 42
+physics_rtf: 11
+enable_gui: False
+physics_step: 0.01
+door_state: ['closed']
+scale_factor: [0.6, 1.0]
+battery_soc:  0.5
+IncidentWaveSpectrumType:
+ - Bretschneider:
+     Hs: [2.0, 4.0]
+     Tp: [14.0, 16.0]
