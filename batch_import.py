@@ -5,18 +5,42 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+##################TESTING##################
+batch_file_name = 'batch_results_20251006112022'
+
+import_batch(batch_file_name)
+
+
+##################DONE TESTING##################
 
 def import_batch(batch_file_name):
     #Take the batch file name, find the file, import that file name to batchfolder log
+    batch_file_path = batch_filepath_sourcing(batch_file_name) #Find batch file path
+
+
 
     add_datalog(batch_file_name) #Final step - add to log
 ##################################################################################
 
 
-def batch_filepath_sourcing():
+def batch_filepath_sourcing(batch_file_name):
     #Take the batch file name and return the file path
+    #TODO: Change search path to be inclusive of dropbox without having dropbox authentication saved
+    import os
+
+    batch_file_path = []
+    search_path_starting =r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\TestingData'
+    for root, _, files in os.walk(search_path_starting): # Walk through the directory, finding files
+        for file in files:
+            if file == filename_to_find:
+                found_files.append(os.path.join(root, file))
+                print(f"Found file at: {found_files[-1]}") ##TESTING
+    return found_files
+    
+
 
 def add_datalog(file_name):
+
     # Reads a CSV created from a pandas DataFrame, adds a row with file_name and date, writes back to CSV
     #TODO: Add in a check that writes the old csv to a backup dropbox folder.
     #TODO: adjust the function so that it reports if the file_name is from a batch or sim
