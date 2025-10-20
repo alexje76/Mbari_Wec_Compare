@@ -5,19 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-##################TESTING##################
-batch_file_name = 'batch_results_20251006112022'
-
-import_batch(batch_file_name)
-
-
-##################DONE TESTING##################
 
 def import_batch(batch_file_name):
     #Take the batch file name, find the file, import that file name to batchfolder log
     batch_file_path = batch_filepath_sourcing(batch_file_name) #Find batch file path
-
-
+    print(f"batch_file_path(s) found: {batch_file_path}")
 
     add_datalog(batch_file_name) #Final step - add to log
 ##################################################################################
@@ -27,15 +19,24 @@ def batch_filepath_sourcing(batch_file_name):
     #Take the batch file name and return the file path
     #TODO: Change search path to be inclusive of dropbox without having dropbox authentication saved
     import os
+    found_paths = []
+    search_path_starting = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\TestingData'
 
-    batch_file_path = []
-    search_path_starting =r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\TestingData'
-    for root, _, files in os.walk(search_path_starting): # Walk through the directory, finding files
-        for file in files:
-            if file == filename_to_find:
-                found_files.append(os.path.join(root, file))
-                print(f"Found file at: {found_files[-1]}") ##TESTING
-    return found_files
+    # Walk through the directory, checking both directories and files for a match
+    for root, dirs, files in os.walk(search_path_starting):
+        for d in dirs:
+            if d == batch_file_name:
+                found_paths.append(os.path.join(root, d))
+                print(f"Found directory at: {found_paths[-1]} **********************")
+        for f in files:
+            if f == batch_file_name:
+                found_paths.append(os.path.join(root, f))
+                print(f"Found file at: {found_paths[-1]}")
+
+    if not found_paths:
+        raise FileNotFoundError(f"'{batch_file_name}' not found under {search_path_starting}")
+
+    return found_paths
     
 
 
@@ -59,9 +60,22 @@ def add_datalog(file_name):
         raise FileNotFoundError(f"Datalog file '{datalog_csv}' does not exist.")
 
     # Add new row
+    # Avoid adding duplicates
+    if 'file_name' in df.columns and file_name in df['file_name'].values:
+        print(f"'{file_name}' already present in datalog; skipping add.")
+        return
+
     new_row = {'file_name': file_name, 'date_added': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 
     # Write back to CSV
     df.to_csv(datalog_csv, index=False)
     
+##################TESTING##################
+batch_file_name = 'batch_results_20251006112022'
+
+import_batch(batch_file_name)
+
+
+##################DONE TESTING##################
+
