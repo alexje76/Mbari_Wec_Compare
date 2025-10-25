@@ -13,40 +13,24 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import glob
+import mainDF_management as mDF_mgmt 
+
 
 def import_batch(batch_file_name):
     #Take the batch file name, find the file.
     #Import the data to the mainDF, then import that file name to batchfolder log
     batch_file_path = batch_filepath_sourcing(batch_file_name) #Find batch file path
 
-    access_mainDF() #Get mainDF in scope
-    if mainDF.empty or not (mainDF['batch_file_name'].str.contains(batch_file_name).any()): #Check if mainDF has batch data or empty
+    global mainDF
+    mainDF = mDF_mgmt.access_mainDF()  # Get mainDF (returned) in scope
+    if mainDF.empty or not (mainDF['batch_file_name'].str.contains(batch_file_name).any()):  # Check if mainDF has batch data or empty
         add_to_mainDF(batch_file_path, batch_file_name) #Import batch to main DF 
     else:
         print("mainDF already imported this batch; skipping batch import.")
         return
-    write_mainDF() #Write mainDF to csv
+    mDF_mgmt.write_mainDF(mainDF) #Write mainDF to csv
 
     add_datalog(batch_file_name) #Final step - add to log
-
-def write_mainDF():
-    #Write the mainDF to csv
-    global mainDF
-    mainDF_csv = 'mainDF.csv'  # Path to your main DataFrame CSV file
-    mainDF.to_csv(mainDF_csv, index=False)
-    print(f"mainDF written to {mainDF_csv} with {len(mainDF)} rows and {len(mainDF.columns)} columns.")
-
-def access_mainDF():
-    #Check the existence of mainDF, or read in from csv
-    global mainDF
-    mainDF_csv = 'mainDF.csv'  # Path to your main DataFrame CSV file
-    # If the file exists, read it; otherwise, create an empty DataFrame
-    if os.path.exists(mainDF_csv):
-        mainDF = pd.read_csv(mainDF_csv)
-        print(f"mainDF loaded with {len(mainDF)} rows and {len(mainDF.columns)} columns.")
-    else:
-        mainDF = pd.DataFrame()
-        print("mainDF does not exist. Created new empty DataFrame.*****************")
 
 def add_to_mainDF(batch_file_path, batch_file_name):
     #Import all the run data from a batch to the main DataFrame
@@ -72,10 +56,10 @@ def add_to_mainDF(batch_file_path, batch_file_name):
             global mainDF
             # combine run metadata into a single Series, add path, and append as one new row to mainDF
             run_info = pd.concat([pd.Series({'batch_file_name': batch_file_name}), run_row]) 
-            run_info['run_pblogdir_path'] = run_pblogdir_path
+            run_info['run_data_path'] = run_data_path
             run_info['active'] = True
             run_info['sim'] = True
-            run_info['trim']
+            run_info['trim'] = None
 
             mainDF = pd.concat([mainDF, run_info.to_frame().T], ignore_index=True, sort=False)
             print(f"Appended run from {run_data_path} to mainDF.")
