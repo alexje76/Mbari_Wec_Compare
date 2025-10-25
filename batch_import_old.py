@@ -7,6 +7,8 @@
 # TODO: add in when mainDF was created/last modified
 # TODO: Check and create from datalog if mainDF does not exist
 # TODO: port out write and access mainDF to a separate module for reuse
+# TODO: add in Active column
+# TODO: add in batch vs real experiment column
 # TODO: add in check for exit code being 0, and update active column correspondingly
 import numpy as np
 import matplotlib.pyplot as plt
@@ -69,33 +71,19 @@ def add_to_mainDF(batch_file_path, batch_file_name):
         run_data_path = os.path.join(run_pblogdir_path, run_data_path[0])
 
         if os.path.exists(run_data_path):
-            global mainDF
-            # combine run metadata into a single Series, add path, and append as one new row to mainDF
-            run_info = pd.concat([pd.Series({'batch_file_name': batch_file_name}), run_row]) 
-            run_info['run_pblogdir_path'] = run_pblogdir_path
-            run_info['active'] = True
-            run_info['sim'] = True
-            run_info['trim']
-
-            mainDF = pd.concat([mainDF, run_info.to_frame().T], ignore_index=True, sort=False)
-            print(f"Appended run from {run_data_path} to mainDF.")
-
-
-        # THIS IS LEGACY FROM WHEN I WAS ATTEMPTING TO IMPORT THE FULL RUN DATA INTO MAINDF
-        # if os.path.exists(run_data_path):
-        #     run_data = pd.read_csv(run_data_path)
-        #     # TODO: Verbose version - add more info from the log file to the run data
-        #     run_info = pd.concat([pd.Series({'batch_file_name': batch_file_name}), run_row], axis=0)
-        #     row_length = len(run_data)
+            run_data = pd.read_csv(run_data_path)
+            # TODO: Verbose version - add more info from the log file to the run data
+            run_info = pd.concat([pd.Series({'batch_file_name': batch_file_name}), run_row], axis=0)
+            row_length = len(run_data)
             
-        #     run_info_repeated = pd.DataFrame([run_info] * row_length)
-        #     run_data_verbose = pd.concat([run_info_repeated.reset_index(drop=True), run_data.reset_index(drop=True)], axis=1)
+            run_info_repeated = pd.DataFrame([run_info] * row_length)
+            run_data_verbose = pd.concat([run_info_repeated.reset_index(drop=True), run_data.reset_index(drop=True)], axis=1)
 
-        #     global mainDF
-        #     mainDF = pd.concat([mainDF, run_data_verbose], ignore_index=True, sort=False)
-        #     print(f"Appended data from {run_data_path} to mainDF.")
-        # else:
-        #     print(f"Run data file not found: {run_data_path}")
+            global mainDF
+            mainDF = pd.concat([mainDF, run_data_verbose], ignore_index=True, sort=False)
+            print(f"Appended data from {run_data_path} to mainDF.")
+        else:
+            print(f"Run data file not found: {run_data_path}")
               
 
 def batch_filepath_sourcing(batch_file_name):
