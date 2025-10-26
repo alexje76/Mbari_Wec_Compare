@@ -3,17 +3,19 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import glob
+pblog_name = "2025.10.06T11.20.26.csv"
+run_data_path = glob.glob(f"TestingData/**/{pblog_name}", recursive=True)
+if run_data_path:
+    # print the first match (full relative path)
+    run_data_path = run_data_path[0]
+else:
+    raise FileNotFoundError(f"{pblog_name} not found under TestingData")
 
-data = [
-    ['Alice', 25, 'New York'],
-    ['Bob', 30, 'London'],
-    ['Charlie', 35, 'here']
-]
-columns = ['Name', 'Age', 'City']
-df = pd.DataFrame(data, columns=columns)
-print(df)
-
-df['trim'] = None
-df.at[2, 'trim'] = 5  # Set trim value for Charlie
-
-print(df.iloc[1:])  # Accessing Charlie's city
+print("--------------")
+# search recursively under TestingData for the pblog file name
+matches = glob.glob(os.path.join('TestingData', '**', pblog_name), recursive=True)
+if matches:
+	# print the first match (full relative path)
+	print(matches[0])
+else:
+	print(f"{pblog_name} not found under TestingData")
