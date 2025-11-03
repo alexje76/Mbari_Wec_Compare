@@ -6,7 +6,7 @@ import glob
 
 import mainDF_management as mDF_mgmt    
 
-transient = pd.read_csv('transient.csv')
+transient = pd.read_csv('transientA1.csv')
 #print(transient)
 
 
@@ -14,13 +14,13 @@ transient = pd.read_csv('transient.csv')
 x = transient['i']
 y = transient['avg_power']
 
-x = x[2:]
-y = y[2:]
+x = x[1:]
+y = y[1:]
 
     
     #Plot the data
 plt.figure(figsize=(10, 6))
-plt.title(f"Data Plot for 500s Transient test .5A 8T: power vs trim")
+plt.title(f"Data Plot for 500s Transient test 1A 8T: power vs trim")
 
 plt.scatter(x, y)
    # plt.xscale('log') #for physics step

@@ -38,14 +38,21 @@ def plot_data(**kwargs):
     x = plot_data[kwargs['x']]
     y = plot_data[kwargs['y']]
 
-    print(x)
+    if 'remove_end_runs' in kwargs:
+        removal = kwargs['remove_end_runs']
+        x = x.iloc[:-removal]
+        y = y.iloc[:-removal]
+        print(x)
+        print(y)
+
+    #print(x)
     
     #Plot the data
     plt.figure(figsize=(10, 6))
     plt.title(f"Data Plot for {plot_data_name}: {kwargs['y']} vs {kwargs['x']}")
 
     plt.scatter(x, y)
-   # plt.xscale('log') #for physics step
+    #plt.xscale('log') #for physics step
     plt.xlabel(kwargs['x'])
     plt.ylabel(kwargs['y'])
     plt.grid()
@@ -53,7 +60,7 @@ def plot_data(**kwargs):
 
 ##################TESTING##################
 def main():
-   plot_data(batch_name='batch_results_20251027105926', x=' PhysicsStep', y='avg_tot_power')
+   plot_data(batch_name='batch_results_20251102162754_1', x=' PhysicsStep', y='max_spring_range', remove_end_runs=2)
 
     
 ##################DONE TESTING##################

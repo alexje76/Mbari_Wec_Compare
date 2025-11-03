@@ -38,20 +38,24 @@ def analytics(**kwargs):
                 pass
                 print('trimming in greater than 0') #Debugging
             else:
-                trim_amount = 0 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
+                trim_amount =0 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
                # print('trimming in the else - is a #todo') #Debugging
         else:
             trim_amount = 0  # seconds
             warnings.warn(f"No trim amount specified for {pblog_name}. Proceeding without trimming.")
 
-        if kwargs['window_length']:
+        if 'window_length' in kwargs:
             window_length = kwargs['window_length']
         else:
             window_length = 0
 
         trimmed_data = trim(run_data, trim_amount, window_length)
 
-        mainDF.at[index, analytic.__name__] = analytic(trimmed_data)
+        if analytic == 'sim_run_time':
+            mainDF.at[index, analytic.__name__] = analytic(run_data)
+            print('debugging- used run data not trimmed')
+        else:
+            mainDF.at[index, analytic.__name__] = analytic(trimmed_data)
         print(mainDF.at[index, analytic.__name__])
         mDF_mgmt.write_mainDF(mainDF)
 
@@ -63,7 +67,7 @@ def analytics(**kwargs):
             trimmed_data = trim(run_data, trim_amount, window_length)
             analytictransient = mainDF.at[index, analytic.__name__] = analytic(trimmed_data)
             transient_data.loc[len(transient_data)] = [i, trim_amount, analytictransient]
-    transient_data.to_csv('transient.csv', index=False)
+    transient_data.to_csv('transientA1.csv', index=False)
 
 ######## POWER FUNCTIONS ##########
 def avg_tot_power(trimmed_data):
@@ -82,8 +86,45 @@ def avg_tot_power(trimmed_data):
     else:
         return avg_total_power
 
+def max_timestep_power(trimmed_data): #TODO change to be consistent naming
+        #Calculate max instant total power from a run
+    PC_voltage = trimmed_data[' PC Bus Voltage (V)']
+    #print(PC_voltage)
+    PC_batt_current = trimmed_data[' PC Battery Curr (A)']
+    PC_load_current = trimmed_data[' PC Load Dump Current (A)']
+
+    avg_total_power_list = (PC_voltage * (PC_batt_current + PC_load_current))
+   # print (avg_total_power_list)
+    max_total_power_instant = np.max(avg_total_power_list)
+    #print(avg_total_power)
+
+    if not np.isscalar(max_total_power_instant): raise TypeError(f"must be a scalar number, got {type(max_total_power_instant).name}")
+    else:
+        return max_total_power_instant
 
 ######## END POWER FUNCTIONS #############################
+######## START SPRING FUNCTIONS #############################
+def max_spring_range(trimmed_data):
+    spring_range = trimmed_data[' SC Range Finder (in)']
+    max_spring_range = np.max(spring_range)
+
+    if not np.isscalar(max_spring_range): raise TypeError(f"must be a scalar number, got {type(max_spring_range).name}")
+    else:
+        return max_spring_range
+
+######## END SPRING FUNCTIONS #############################
+
+####### START UNGROUPED FUNCTIONS ###########################
+# ##Not doing what I hoped atm #TODO
+# def sim_run_time(run_data):  
+#     start_time = run_data[' Timestamp (epoch seconds)'].iloc[0]
+#     end_time = run_data[' Timestamp (epoch seconds)'].iloc[-1]
+#     sim_run_time = start_time-end_time
+
+#     if not np.isscalar(sim_run_time): raise TypeError(f"must be a scalar number, got {type(sim_run_time).name}")
+#     else:
+#         return sim_run_time
+####### END UNGROUPED FUNCTIONS ############################
 
 def trim(data, trim_amount, window_length):
     """
@@ -99,6 +140,9 @@ def trim(data, trim_amount, window_length):
         #print('trim end time, debugging') #debugging
         trim_idx_end = data.index[data[' Timestamp (epoch seconds)'] <= trim_end_time][-1]
 
+
+        print(trim_idx_start)
+        print(trim_idx_end)
         return data.iloc[trim_idx_start:trim_idx_end]
 
     else: 
@@ -136,7 +180,7 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
 
 ##################TESTING##################
 def main():
-    analytics(batch_name='batch_results_20251102162055', analytic=avg_tot_power, window_length='8')
+    analytics(batch_name='', analytic=avg_tot_power, window_length=8)
 
     
 ##################DONE TESTING##################

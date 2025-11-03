@@ -8,6 +8,7 @@
 # TODO: Check and create from datalog if mainDF does not exist
 # TODO: port out write and access mainDF to a separate module for reuse
 # TODO: add in check for exit code being 0, and update active column correspondingly
+# TODO: add in comparison for if ALL the batch files have been read in
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -142,7 +143,7 @@ def add_datalog(file_name):
     
 ##################TESTING##################
 def main():
-    batch_file_name = 'batch_results_20251102162055'
+    batch_file_name = 'batch_results_20251102192451'
 
     import_batch(batch_file_name)
 ##################DONE TESTING##################
