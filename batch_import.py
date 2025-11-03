@@ -88,7 +88,7 @@ def batch_filepath_sourcing(batch_file_name):
     #TODO: Change search path to be inclusive of dropbox without having dropbox authentication saved
     import os
     found_paths = []
-    search_path_starting = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare'     
+    search_path_starting = r'C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData'     
     #search_path_starting = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\TestingData'
 
     # Walk through the directory, checking both directories and files for a match
@@ -142,7 +142,7 @@ def add_datalog(file_name):
     
 ##################TESTING##################
 def main():
-    batch_file_name = 'batch_results_20251006112022'
+    batch_file_name = 'batch_results_20251102162055'
 
     import_batch(batch_file_name)
 ##################DONE TESTING##################
