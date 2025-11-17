@@ -67,7 +67,7 @@ def analytics(**kwargs):
             trimmed_data = trim(run_data, trim_amount, window_length)
             analytictransient = mainDF.at[index, analytic.__name__] = analytic(trimmed_data)
             transient_data.loc[len(transient_data)] = [i, trim_amount, analytictransient]
-    transient_data.to_csv('transientA1.csv', index=False)
+    transient_data.to_csv('transientBritt.csv', index=False)
 
 ######## POWER FUNCTIONS ##########
 def avg_tot_power(trimmed_data):
@@ -167,6 +167,7 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
     else:
         raise ValueError("Must provide either batch_name and run_number, mainDF_index, or pblog_name to access data.")    
 
+    print(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"))
     run_data_path = glob.glob(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"), recursive=True) #TODO: change TestingData to batches
     #print(glob.glob(f"Convergence_MCWaves/*", recursive=True))
     if run_data_path:
@@ -180,7 +181,7 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
 
 ##################TESTING##################
 def main():
-    analytics(batch_name='', analytic=avg_tot_power, window_length=8)
+    analytics(batch_name='batch_results_20251104192420', analytic=avg_tot_power, window_length=8)
 
     
 ##################DONE TESTING##################
