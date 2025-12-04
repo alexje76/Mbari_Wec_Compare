@@ -82,6 +82,7 @@ def plot_data_runs(**kwargs):
         run_data_y2 = run_data[[kwargs['x'], kwargs['y2']]]
         run_data_clean_y2 = run_data_y2.dropna()
         y_name += f" and {kwargs['y2']}"
+        print(run_data_clean_y2) # debugging
         plt.scatter(run_data_clean_y2[kwargs['x']], run_data_clean_y2[kwargs['y2']], label=kwargs['y2'], s=.2)
 
     if 'y3' in kwargs:
@@ -98,23 +99,41 @@ def plot_data_runs(**kwargs):
 
     #plt.xscale('log') #for physics step
     plt.xlabel(kwargs['x'])
-    plt.ylabel('m/s (untitled)')
+    plt.ylabel('')
 
     plt.title(f"Data Plot for {plot_data_name}: {y_name} vs {kwargs['x']}")
     plt.legend(markerscale = 7)
     #plt.grid()
-    plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=9))
+    #plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=9))
 
     plt.show()
 
+def transient_investigation_plot(transient):
+    x = transient['i']
+    y = transient['avg_power']
+
+    x = x[1:]
+    y = y[1:]
+
+        
+        #Plot the data
+    plt.figure(figsize=(10, 6))
+    plt.title(f"Data Plot for 500s Transient test 0.5A 8T: power vs trim")
+
+    plt.scatter(x, y)
+    # plt.xscale('log') #for physics step
+    plt.xlabel('trim(periods)')
+    plt.ylabel('power')
+    plt.grid()
+    plt.show()
 ##################TESTING##################
 def main():
     #plot_data(batch_name='batch_results_20251102162754_1', x=' PhysicsStep', y='max_spring_range', remove_end_runs=2)
-    #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB X Rate', y2=' XB Y Rate', y3=' XB Z Rate')
-    #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
-    plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB Down Vel')
-    #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB Long')
-
+    #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' XB X Rate', y2=' XB Y Rate', y3=' XB Z Rate')
+    #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
+    plot_data_runs(pblog_name='results_run_4_20251121162305', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB Down Vel')
+    #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' SC Range Finder (in)')
+    #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB X Rate', y4=' XB Z Rate')
 ##################DONE TESTING##################
 
 if __name__ == '__main__':

@@ -28,11 +28,16 @@ def import_batch(batch_file_name):
     if mainDF.empty or not (mainDF['batch_file_name'].str.contains(batch_file_name).any()):  # Check if mainDF has batch data or empty
         add_to_mainDF(batch_file_path, batch_file_name) #Import batch to main DF 
     else:
-        print("mainDF already imported this batch; skipping batch import.")
-        return
+        print("mainDF already imported this batch:")
+        user_input = input("Type 'N' to exit without importing, any other key will continue: ")
+        if user_input.lower() == 'n':
+            sys.exit(0)
+        else:
+            add_to_mainDF(batch_file_path, batch_file_name) #Import batch to main DF
+        
     mDF_mgmt.write_mainDF(mainDF) #Write mainDF to csv
 
-    add_datalog(batch_file_name) #Final step - add to log
+    add_datalog(batch_file_name) #Final step - add to log 
 
 def add_to_mainDF(batch_file_path, batch_file_name):
     #Import all the run data from a batch to the main DataFrame
@@ -65,23 +70,18 @@ def add_to_mainDF(batch_file_path, batch_file_name):
 
             mainDF = pd.concat([mainDF, run_info.to_frame().T], ignore_index=True, sort=False)
             print(f"Appended run from {run_data_path} to mainDF.")
-
-
-        # THIS IS LEGACY FROM WHEN I WAS ATTEMPTING TO IMPORT THE FULL RUN DATA INTO MAINDF
-        # if os.path.exists(run_data_path):
-        #     run_data = pd.read_csv(run_data_path)
-        #     # TODO: Verbose version - add more info from the log file to the run data
-        #     run_info = pd.concat([pd.Series({'batch_file_name': batch_file_name}), run_row], axis=0)
-        #     row_length = len(run_data)
-            
-        #     run_info_repeated = pd.DataFrame([run_info] * row_length)
-        #     run_data_verbose = pd.concat([run_info_repeated.reset_index(drop=True), run_data.reset_index(drop=True)], axis=1)
-
-        #     global mainDF
-        #     mainDF = pd.concat([mainDF, run_data_verbose], ignore_index=True, sort=False)
-        #     print(f"Appended data from {run_data_path} to mainDF.")
-        # else:
-        #     print(f"Run data file not found: {run_data_path}")
+    
+    if mainDF.duplicated(subset=' pblogFilename').any() : #Checking for duplicates and asking for input to continue
+        print("after appending these runs, mainDF has duplicate runs:")
+        usr_input = input("Type; 'N' to exit without importing, 'R' to replace duplicates with new entries, if no entry defaults to keep original mainDF entries : ")
+        if usr_input.lower() == 'n':
+            sys.exit(0)
+        elif usr_input.lower() == 'r':
+            mainDF.drop_duplicates(subset=' pblogFilename', keep='last')
+        else:
+            print('Defaulting to keeping original mainDF entries, new duplicates will be discarded.')
+            mainDF.drop_duplicates(subset=' pblogFilename', keep='first')
+        return
               
 
 def batch_filepath_sourcing(batch_file_name):
@@ -143,7 +143,7 @@ def add_datalog(file_name):
     
 ##################TESTING##################
 def main():
-    batch_file_name = 'batch_results_20251104192420'
+    batch_file_name = 'batch_results_20251121160129'
 
     import_batch(batch_file_name)
 ##################DONE TESTING##################
