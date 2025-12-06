@@ -64,13 +64,13 @@ def analytics(**kwargs):
         if 'transient_investigation' in kwargs:
             if kwargs['transient_investigation'] == True:
                 columns = ['i', 'trimamount', 'avg_power']
-                transient_data = pd.DataFrame(columns=columns)
-                for i in range(62):
-                    trim_amount = i*8
+                transient_data = pd.DataFrame(columns=columns) #create frame to hold transient data
+                for i in range(50):
+                    trim_amount = i*window_length
                     trimmed_data = trim(run_data, trim_amount, window_length)
                     analytictransient = mainDF.at[index, analytic.__name__] = analytic(trimmed_data)
                     transient_data.loc[len(transient_data)] = [i, trim_amount, analytictransient]
-                visualization.transient_investigation_plot(transient_data)
+                visualization.transient_investigation_plot(transient_data, pblog_name)
 
 ######## POWER FUNCTIONS ##########
 def avg_tot_power(trimmed_data):
@@ -184,7 +184,7 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
 
 ##################TESTING##################
 def main():
-    analytics(batch_name='batch_results_20251121160129', analytic=avg_tot_power, window_length=8, transient_investigation=True)
+    analytics(batch_name='batch_results_20251121160129', analytic=avg_tot_power, window_length=10, transient_investigation=True)
 
     
 ##################DONE TESTING##################

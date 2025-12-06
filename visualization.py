@@ -108,7 +108,7 @@ def plot_data_runs(**kwargs):
 
     plt.show()
 
-def transient_investigation_plot(transient):
+def transient_investigation_plot(transient, pblog_name):
     x = transient['i']
     y = transient['avg_power']
 
@@ -118,7 +118,7 @@ def transient_investigation_plot(transient):
         
         #Plot the data
     plt.figure(figsize=(10, 6))
-    plt.title(f"Data Plot for 500s Transient test 0.5A 8T: power vs trim")
+    plt.title(f"Data Plot for Transient test {pblog_name}: power vs trim")
 
     plt.scatter(x, y)
     # plt.xscale('log') #for physics step

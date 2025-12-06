@@ -2,7 +2,6 @@
 # Take in the batchfolder - output the runs to the main DF and output
 #   the batchfolder to datalog (designed to rebuild mainDF from)
 
-# TODO: check main DF for batch before inserting
 # TODO: insert docstrings for functions
 # TODO: add in when mainDF was created/last modified
 # TODO: Check and create from datalog if mainDF does not exist
@@ -77,12 +76,12 @@ def add_to_mainDF(batch_file_path, batch_file_name):
         if usr_input.lower() == 'n':
             sys.exit(0)
         elif usr_input.lower() == 'r':
-            mainDF.drop_duplicates(subset=' pblogFilename', keep='last')
+            mainDF = mainDF.drop_duplicates(subset=' pblogFilename', keep='last')
         else:
             print('Defaulting to keeping original mainDF entries, new duplicates will be discarded.')
-            mainDF.drop_duplicates(subset=' pblogFilename', keep='first')
+            mainDF = mainDF.drop_duplicates(subset=' pblogFilename', keep='first')
         return
-              
+
 
 def batch_filepath_sourcing(batch_file_name):
     #Take the batch file name and return the file path

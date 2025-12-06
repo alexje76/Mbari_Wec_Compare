@@ -24,3 +24,10 @@ def access_mainDF() -> pd.DataFrame:
         df = pd.DataFrame()
         print("mainDF does not exist. Created new empty DataFrame.*****************")
     return df
+
+def main():
+    print('nothing atm')
+##################DONE TESTING##################
+
+if __name__ == '__main__':
+    main()
