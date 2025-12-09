@@ -39,7 +39,7 @@ def analytics(**kwargs):
                 pass
                 print('trimming in greater than 0') #Debugging
             else:
-                trim_amount =0 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
+                trim_amount = 120 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
                # print('trimming in the else - is a #todo') #Debugging
         else:
             trim_amount = 0  # seconds
@@ -50,6 +50,7 @@ def analytics(**kwargs):
         else:
             window_length = 0
 
+        print(trim_amount)
         trimmed_data = trim(run_data, trim_amount, window_length)
 
         if analytic == 'sim_run_time':
@@ -184,7 +185,7 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
 
 ##################TESTING##################
 def main():
-    analytics(batch_name='batch_results_20251121160129', analytic=avg_tot_power, window_length=10, transient_investigation=True)
+    analytics(batch_name='batch_results_20251208101452', analytic=avg_tot_power, transient_investigation=False)
 
     
 ##################DONE TESTING##################

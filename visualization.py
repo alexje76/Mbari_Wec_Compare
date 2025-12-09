@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
+import matplotlib as mpl
 import pandas as pd
 import os
 import glob
@@ -126,14 +127,56 @@ def transient_investigation_plot(transient, pblog_name):
     plt.ylabel('power')
     plt.grid()
     plt.show()
+
+def hack_heatmap_plot(**kwargs):
+    """
+    Plot a heatmap using the specified parameters. #TODO make sure it will not try to hand other spectrum types
+    """
+    #Access the data
+    mainDF = mDF_mgmt.access_mainDF()    
+
+    #Use function pass to get data indices
+    if 'batch_name' in kwargs and not 'run_number' in kwargs:
+        #get mainDF indices from batch name
+        heatmap_data = mainDF[mainDF['batch_file_name'] == kwargs['batch_name']].copy()
+        print (heatmap_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].head())
+        heatmap_data_name = kwargs['batch_name']
+
+    heatmap_data[['A', 'T']] = heatmap_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)') #capture A,T all after that have a 0-9 or .
+    heatmap_data[['A', 'T']] = heatmap_data[['A', 'T']].astype(float)
+
+    heatmap_data['intensity'] = (heatmap_data['A']**2) * (heatmap_data['T'])  # Simplified intensity calculation
+    heatmap_data['avg_pwr_eff'] = heatmap_data[kwargs['value']] / heatmap_data['intensity']
+
+    cmap = mpl.colormaps['PiYG'] # Choose a colormap
+    print(heatmap_data.head())
+    norm = mpl.colors.CenteredNorm(vcenter=0) #vmin=heatmap_data['avg_pwr_eff'].min(), vmax=heatmap_data['avg_pwr_eff'].max(), 
+    #heatmap_data['color'] = heatmap_data['avg_pwr_eff'].map(lambda v: cmap(norm(v))) #Used for average power efficiency
+    heatmap_data['color'] = heatmap_data[kwargs['value']].map(lambda v: cmap(norm(v))) #Used for simple power average
+
+    #sc = plt.scatter(heatmap_data['T'], heatmap_data['A'], c=heatmap_data['color'], norm = norm, edgecolors='black', linewidths=0.5, s=100)
+    heatmap_data['edgecolor'] = heatmap_data['avg_pwr_eff'].apply(lambda v: 'purple' if v < 0 else 'green')  # Example condition for edge color
+    sc = plt.scatter(heatmap_data['T'], heatmap_data['A'], c=heatmap_data['avg_pwr_eff'], cmap = cmap, norm = norm, edgecolors=heatmap_data['edgecolor'], linewidths=0.5, s=100)
+
+    cbar = plt.colorbar(sc)
+    cbar.set_label("Power efficiency of incident wave")  # label for the color scale
+
+    plt.title(f"Heatmap for {heatmap_data_name}: Avg power efficiency vs Wave Period and Amplitude")
+    plt.xlabel('Period (s)')
+    plt.ylabel('Amplitude (m)')
+    plt.grid()
+    plt.show()
 ##################TESTING##################
 def main():
     #plot_data(batch_name='batch_results_20251102162754_1', x=' PhysicsStep', y='max_spring_range', remove_end_runs=2)
     #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' XB X Rate', y2=' XB Y Rate', y3=' XB Z Rate')
     #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
-    plot_data_runs(pblog_name='results_run_4_20251121162305', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB Down Vel')
-    #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' SC Range Finder (in)')
+    #plot_data_runs(pblog_name='results_run_4_20251121162305', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB Down Vel')
+    plot_data_runs(pblog_name='results_run_9_20251208125330\\pblog', x=' Timestamp (epoch seconds)', y=' SC Range Finder (in)')
     #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB X Rate', y4=' XB Z Rate')
+    plot_data_runs(pblog_name='results_run_1_20251208101612\\pblog', x=' Timestamp (epoch seconds)', y=' PC Battery Curr (A)', y2=' PC Load Dump Current (A)')
+   # plot_data_runs(pblog_name='results_run_1_20251208101612\\pblog', x=' Timestamp (epoch seconds)', y=' PC RPM')
+    hack_heatmap_plot(batch_name='batch_results_20251208101452', value='avg_tot_power')
 ##################DONE TESTING##################
 
 if __name__ == '__main__':
