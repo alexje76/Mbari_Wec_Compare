@@ -1,13 +1,23 @@
+"""
+Module to import the batch results into the main DataFrame for the MBARI WEC project
+
+Functions:
+- import_batch(batch_file_name): Import all runs from the specified batch into mainDF and datalog.
+- add_to_mainDF(batch_file_path, batch_file_name): Helper function to add runs from a batch to mainDF.
+- batch_filepath_sourcing(batch_file_name): Helper Function to locate the file path of the specified batch.
+- add_datalog(file_name): Add an entry for the batch to the datalog CSV as a backup to re-create mainDF and record import timings.
+"""
 # Importing all the runs from a batch
 # Take in the batchfolder - output the runs to the main DF and output
 #   the batchfolder to datalog (designed to rebuild mainDF from)
 
+# TODO: add in a print output option
 # TODO: insert docstrings for functions
 # TODO: add in when mainDF was created/last modified
 # TODO: Check and create from datalog if mainDF does not exist
-# TODO: port out write and access mainDF to a separate module for reuse
 # TODO: add in check for exit code being 0, and update active column correspondingly
-# TODO: add in comparison for if ALL the batch files have been read in
+# TODO: update the 
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -18,8 +28,10 @@ import mainDF_management as mDF_mgmt
 
 
 def import_batch(batch_file_name):
-    #Take the batch file name, find the file.
-    #Import the data to the mainDF, then import that file name to batchfolder log
+    """
+    Take the batch file name, find the file.
+    Import the data to the mainDF, then import that file name to batchfolder log
+    """
     batch_file_path = batch_filepath_sourcing(batch_file_name) #Find batch file path
 
     global mainDF
@@ -46,14 +58,13 @@ def add_to_mainDF(batch_file_path, batch_file_name):
     if os.path.exists(batch_run_logs_path):
         # skip comment lines (the file starts with a '# Generated X simulator runs' line) so pandas reads the true header
         batch_run_logs = pd.read_csv(batch_run_logs_path, comment='#')
-        #print(batch_run_logs)#Debugging
     else:
         print(f"batch_runs.log not found at expected location: {batch_run_logs_path}")
     
-    for run_idx, run_row in batch_run_logs.iterrows():  # Read each run from the batch_runs.log
-        print()
+    for run_idx, run_row in batch_run_logs.iterrows():  #Read each run from the batch_runs.log
+        print() #A blank line for readability
         print(f"Processing run {run_idx} from batch_runs.log")
-        # use the exact column name from the log header (case and whitespace sensitive),join to batchpath, replace backwards slashes for cross-platform compatibility 
+        # use the exact column name from the log header (case and whitespace sensitive), join to batchpath, replace backwards slashes for cross-platform compatibility 
         run_pblogdir_path = os.path.normpath(os.path.join(batch_file_path, str(run_row[' pblogFilename']).strip()))
         run_data_path = [f for f in os.listdir(run_pblogdir_path) if f.endswith('.csv')]
         run_data_path = os.path.join(run_pblogdir_path, run_data_path[0])
@@ -84,12 +95,13 @@ def add_to_mainDF(batch_file_path, batch_file_name):
 
 
 def batch_filepath_sourcing(batch_file_name):
-    #Take the batch file name and return the file path
-    #TODO: Change search path to be inclusive of dropbox without having dropbox authentication saved
+    """
+    Take the batch file name and return the file path
+    This function searches through all of my dropbox folder RcloneData
+    """
     import os
     found_paths = []
-    search_path_starting = r'C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData'     
-    #search_path_starting = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\TestingData'
+    search_path_starting = r'C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData' #starting search path
 
     # Walk through the directory, checking both directories and files for a match
     for root, dirs, files in os.walk(search_path_starting):
@@ -97,22 +109,16 @@ def batch_filepath_sourcing(batch_file_name):
             if d == batch_file_name:
                 found_paths.append(os.path.join(root, d))
                 print(f"Found batch_file_path at: {found_paths[-1]}")
-        #for f in files:
-        #    if f == batch_file_name:
-        #        found_paths.append(os.path.join(root, f))
-        #        print(f"Found file at: {found_paths[-1]}")
-        #^ Batches should be folders, not files - not sure if I was a directory back if it would gather a folder path.
-        # TODO: Investigate the above behavior
 
     if not found_paths:
         raise FileNotFoundError(f"'{batch_file_name}' not found under {search_path_starting}")
 
-    return found_paths[-1]
+    return found_paths[-1] 
 
 def add_datalog(file_name):
-
-    # Reads a CSV created from a pandas DataFrame, adds a row with file_name and date, writes back to CSV
-    #TODO: Add in a check that writes the old csv to a backup dropbox folder. *before, check if it is needed with versioning
+    """
+        Reads a CSV created from a pandas DataFrame, adds a row with file_name and date, writes back to CSV
+    """
     #TODO: adjust the function so that it reports if the file_name is from a batch or sim
     #TODO: add in a check to see if the file_name is already in the datalog, if so, skip adding it again.
     import os
@@ -137,15 +143,14 @@ def add_datalog(file_name):
     new_row = {'file_name': file_name, 'date_added': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 
-    # Write back to CSV
-    df.to_csv(datalog_csv, index=False)
+    df.to_csv(datalog_csv, index=False) #Writes df back to CSV without keeping the index values
     
 ##################TESTING##################
 def main():
-    batch_file_name = 'batch_results_20251208124051'
+    batch_file_name = 'batch_results_20251208191310'
 
     import_batch(batch_file_name)
 ##################DONE TESTING##################
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
     main()

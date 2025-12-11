@@ -62,7 +62,7 @@ def analytics(**kwargs):
         mDF_mgmt.write_mainDF(mainDF)
 
         ######## HERE IS CODE TO TEMPORARILY PLOT AGAINST DIFFERENT TRIM AMOUNTS - MOVING WINDOW
-        if 'transient_investigation' in kwargs:
+        if 'transient_investigation' in kwargs: #TODO: generalize or refactor
             if kwargs['transient_investigation'] == True:
                 columns = ['i', 'trimamount', 'avg_power']
                 transient_data = pd.DataFrame(columns=columns) #create frame to hold transient data
@@ -185,7 +185,7 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
 
 ##################TESTING##################
 def main():
-    analytics(batch_name='batch_results_20251208101452', analytic=avg_tot_power, transient_investigation=False)
+    analytics(batch_name='batch_results_20251208191310', analytic=avg_tot_power, transient_investigation=False)
 
     
 ##################DONE TESTING##################

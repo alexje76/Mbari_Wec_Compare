@@ -1,3 +1,7 @@
+"""
+This is a testing script for subsections of code that are being developed - it is not intended to be useful on a scale longer than 24 hours
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd

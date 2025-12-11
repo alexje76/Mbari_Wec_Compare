@@ -1,3 +1,11 @@
+"""
+This module contains functions for visualizing MBARI WEC data in a variety of ways
+Functions:
+- plot_data(**kwargs): Plot data from mainDF based on specified parameters.
+- plot_data_runs(**kwargs): Plot data for a specific run as a time series.
+- transient_investigation_plot(transient, pblog_name): Plot transient investigation results.
+- hack_heatmap_plot(**kwargs): Plot a "heatmap" for wave spectrum data - currently hardcoded for avg power of regular waves (12/10/25).
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -55,7 +63,7 @@ def plot_data(**kwargs):
     plt.title(f"Data Plot for {plot_data_name}: {kwargs['y']} vs {kwargs['x']}")
 
     plt.scatter(x, y)
-    #plt.xscale('log') #for physics step
+    #plt.xscale('log') #for physics step #TODO add toggle argument, for y as well
     plt.xlabel(kwargs['x'])
     plt.ylabel(kwargs['y'])
     plt.grid()
@@ -145,7 +153,7 @@ def hack_heatmap_plot(**kwargs):
     heatmap_data[['A', 'T']] = heatmap_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)') #capture A,T all after that have a 0-9 or .
     heatmap_data[['A', 'T']] = heatmap_data[['A', 'T']].astype(float)
 
-    heatmap_data['intensity'] = (heatmap_data['A']**2) * (heatmap_data['T'])  # Simplified intensity calculation
+    heatmap_data['intensity'] = (heatmap_data['A']**2) * (heatmap_data['T'])  # Simplified intensity calculation  TODO: implememnt the non simplified version
     heatmap_data['avg_pwr_eff'] = heatmap_data[kwargs['value']] / heatmap_data['intensity']
 
     cmap = mpl.colormaps['PiYG'] # Choose a colormap
@@ -176,7 +184,7 @@ def main():
     #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB X Rate', y4=' XB Z Rate')
     plot_data_runs(pblog_name='results_run_1_20251208101612\\pblog', x=' Timestamp (epoch seconds)', y=' PC Battery Curr (A)', y2=' PC Load Dump Current (A)')
    # plot_data_runs(pblog_name='results_run_1_20251208101612\\pblog', x=' Timestamp (epoch seconds)', y=' PC RPM')
-    hack_heatmap_plot(batch_name='batch_results_20251208101452', value='avg_tot_power')
+    hack_heatmap_plot(batch_name='batch_results_20251208191310', value='avg_tot_power')
 ##################DONE TESTING##################
 
 if __name__ == '__main__':
