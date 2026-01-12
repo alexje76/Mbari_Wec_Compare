@@ -10,6 +10,7 @@ import run_analytics
 #TODO: experiment_info.py
 #TODO: data_removal.py
 import mainDF_management
+import wave_operations
 
 #TESTING#####################################
 def main():

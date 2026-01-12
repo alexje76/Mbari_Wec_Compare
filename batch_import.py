@@ -147,7 +147,7 @@ def add_datalog(file_name):
     
 ##################TESTING##################
 def main():
-    batch_file_name = 'batch_results_20251208191310'
+    batch_file_name = 'batch_results_20251218153359'
 
     import_batch(batch_file_name)
 ##################DONE TESTING##################

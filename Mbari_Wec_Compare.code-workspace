@@ -1,0 +1,29 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/alex_test"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/ZeroWave_11_10"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/Instability11_21"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/HeatmapAT11_17"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/HeatmapAT11_17/batch_results_20251208191310"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/Damping12_16"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/ErrorCode12_18"
+		}
+	],
+	"settings": {}
+}
