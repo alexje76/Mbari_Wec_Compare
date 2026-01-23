@@ -56,8 +56,6 @@ def plot_data(**kwargs):
         y = y.iloc[:-removal]
         print(x)
         print(y)
-
-    #print(x)
     
     #Plot the data
     plt.figure(figsize=(10, 6))
@@ -82,7 +80,7 @@ def plot_data_runs(**kwargs):
     plot_data_name = kwargs['batch_name'] if 'batch_name' in kwargs else kwargs['pblog_name'] #TODO: improve
 
     run_data_y = run_data[[kwargs['x'], kwargs['y']]]
-    run_data_clean_y = run_data_y.dropna()
+    run_data_clean_y = y_data_to_float(run_data_y.dropna())
     y_name = kwargs['y']
 
     plt.figure(figsize=(15, 9))
@@ -90,20 +88,20 @@ def plot_data_runs(**kwargs):
 
     if 'y2' in kwargs:
         run_data_y2 = run_data[[kwargs['x'], kwargs['y2']]]
-        run_data_clean_y2 = run_data_y2.dropna()
+        run_data_clean_y2 = y_data_to_float(run_data_y2.dropna())
         y_name += f" and {kwargs['y2']}"
-        print(run_data_clean_y2) # debugging
+        #print(run_data_clean_y2) # debugging
         plt.scatter(run_data_clean_y2[kwargs['x']], run_data_clean_y2[kwargs['y2']], label=kwargs['y2'], s=.2)
 
     if 'y3' in kwargs:
         run_data_y3 = run_data[[kwargs['x'], kwargs['y3']]]
-        run_data_clean_y3 = run_data_y3.dropna()
+        run_data_clean_y3 = y_data_to_float(run_data_y3.dropna())
         y_name += f", {kwargs['y3']}"
         plt.scatter(run_data_clean_y3[kwargs['x']], run_data_clean_y3[kwargs['y3']], label=kwargs['y3'], s=.2)
 
     if 'y4' in kwargs:
         run_data_y4 = run_data[[kwargs['x'], kwargs['y4']]]
-        run_data_clean_y4 = run_data_y4.dropna()
+        run_data_clean_y4 = y_data_to_float(run_data_y4.dropna())
         y_name += f", {kwargs['y4']}"
         plt.scatter(run_data_clean_y4[kwargs['x']], run_data_clean_y4[kwargs['y4']], label=kwargs['y4'], s=.2)
 
@@ -116,7 +114,7 @@ def plot_data_runs(**kwargs):
     #plt.grid()
     #plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=9))
 
-    plt.show()
+    #plt.show()
 
 def transient_investigation_plot(transient, pblog_name):
     x = transient['i']
@@ -136,7 +134,6 @@ def transient_investigation_plot(transient, pblog_name):
     plt.ylabel('power')
     plt.grid()
     plt.show()
-
 def hack_heatmap_plot(**kwargs):
     """
     Plot a heatmap using the specified parameters. #TODO make sure it will not try to hand other spectrum types
@@ -150,6 +147,15 @@ def hack_heatmap_plot(**kwargs):
         heatmap_data = mainDF[mainDF['batch_file_name'] == kwargs['batch_name']].copy()
         heatmap_data_name = kwargs['batch_name']
 
+    if 'batch_name2' in kwargs and not 'run_number' in kwargs:
+        #get mainDF indices from batch name
+        heatmap_data_batch2 = mainDF[mainDF['batch_file_name'] == kwargs['batch_name2']].copy()
+        heatmap_data_name2 = kwargs['batch_name2']
+        heatmap_data = pd.concat([heatmap_data, heatmap_data_batch2], ignore_index=True)
+
+    if 'one_physics_step' in kwargs and kwargs['one_physics_step'] is not None:
+        heatmap_data = heatmap_data[heatmap_data[' PhysicsStep'] == kwargs['one_physics_step']]
+
     heatmap_data[['A', 'T']] = heatmap_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)') #capture A,T all after that have a 0-9 or .
     g = 9.81
     row = 1020
@@ -158,7 +164,10 @@ def hack_heatmap_plot(**kwargs):
 
     heatmap_data['flux'] = (((g**2)*row/8)*wec_diameter*(heatmap_data['A']**2) * (heatmap_data['T']))  # Flux, munltiplied by wec area to just get watts  TODO: implememnt the non simplified version
     heatmap_data['avg_pwr_eff'] = heatmap_data[kwargs['value']] / heatmap_data['flux']
-    print(heatmap_data[['A', 'T', 'flux', kwargs['value'], 'avg_pwr_eff']])
+    #print(heatmap_data[['A', 'T', 'flux', kwargs['value'], 'avg_pwr_eff']])
+
+    if 'error_removal' in kwargs and kwargs['error_removal'] == True:
+        heatmap_data = heatmap_data[heatmap_data[' SimReturnCode'] == 0] #remove error
 
     cmap = mpl.colormaps['PiYG'] # Choose a colormap
     norm = mpl.colors.CenteredNorm(vcenter=0) #center the colormap at 0
@@ -167,25 +176,44 @@ def hack_heatmap_plot(**kwargs):
     heatmap_data['edgecolor'] = heatmap_data['avg_pwr_eff'].apply(lambda v: 'purple' if v <= 0 else 'green')  # Example condition for edge color
     #print(heatmap_data['avg_pwr_eff'].max())
     #print(heatmap_data['avg_pwr_eff'].min())
-    sc = plt.scatter(heatmap_data['T'], heatmap_data['A'], c=heatmap_data['avg_pwr_eff'], cmap = cmap, norm = norm, edgecolors=heatmap_data['edgecolor'], linewidths=0.5, s=200)
 
-    cmap2 = mpl.colormaps['bwr'] # Choose a colormap for power
-    norm2 = mpl.colors.TwoSlopeNorm(vmin = heatmap_data[kwargs['value']].min(), vmax=heatmap_data[kwargs['value']].max(), vcenter=0) #center the colormap at 0
+    if 'damping_values' in kwargs and kwargs['damping_values'] is True:
+        damping = heatmap_data[' ScaleFactor'].unique()
+        print(damping)
+        markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']  # Extend this list if you have more damping values
+        sc = {} 
+        damp_spread = {}
+        for i, damp in enumerate(damping):
+            damp_data = heatmap_data[heatmap_data[' ScaleFactor'] == damp]
+            #print(damp_data)
+            print(f'Damping Scale {damp}: max avg power eff {damp_data["avg_pwr_eff"].max()}, min avg power eff {damp_data["avg_pwr_eff"].min()}')
+            damp_spread[damp] = damp_data['avg_pwr_eff'].max() - damp_data['avg_pwr_eff'].min()
+            sc[f'sc{i}'] = plt.scatter(damp_data['T'] + (i*0.1)-0.1, damp_data['A'], c=damp_data['avg_pwr_eff'], cmap = cmap, norm = norm, edgecolors=damp_data['edgecolor'], linewidths=0.5, s=50, label=f'Damping Scale {damp}', marker=markers[i], alpha=0.7)
+        max_spread_damp = max(damp_spread, key=damp_spread.get)
+        cbar = plt.colorbar(sc[f'sc{int(max_spread_damp)}']) #TODO: make sure this works with multiple scatters
+        cbar.set_label("Power efficiency of incident wave")  # label for the color scale
+    else:
+        sc = plt.scatter(heatmap_data['T'], heatmap_data['A'], c=heatmap_data['avg_pwr_eff'], cmap = cmap, norm = norm, edgecolors=heatmap_data['edgecolor'], linewidths=0.5, s=200)
+        cbar = plt.colorbar(sc) #TODO: make sure this works with multiple scatters
+        cbar.set_label("Power efficiency of incident wave")  # label for the color scale
+
+    if 'val_plotted' in kwargs and kwargs['val_plotted'] is True:
+        cmap2 = mpl.colormaps['cool'] # Choose a colormap for power #TODO:Cmasher
+    #print(heatmap_data[kwargs['value']].max())
+    #print(heatmap_data[kwargs['value']].min())
+        norm2 = mpl.colors.LogNorm(vmin = 1, vmax=heatmap_data[kwargs['value']].max()) #log colormap with negative values clipped
+    #norm2 = mpl.colors.TwoSlopeNorm(vmin = heatmap_data[kwargs['value']].min(), vmax=heatmap_data[kwargs['value']].max(), vcenter=0) #center the colormap at 0
     #norm2.autoscale(heatmap_data[kwargs['value']]) #autoscale based on data, matching color map endpoints to data
-    sc2 = plt.scatter(heatmap_data['T']+0.1, heatmap_data['A'], c=heatmap_data[kwargs['value']], cmap = cmap2, norm = norm2, edgecolors='black', linewidths=0.5, s=100, marker='d')
+        sc2 = plt.scatter(heatmap_data['T'], heatmap_data['A']+0.05, c=heatmap_data[kwargs['value']], cmap = cmap2, norm = norm2, edgecolors='black', linewidths=0.5, s=75, marker='p')
 
-    cbar = plt.colorbar(sc)
-    cbar.set_label("Power efficiency of incident wave")  # label for the color scale
+        cbar2 = plt.colorbar(sc2)
+        cbar2.set_label(f"{kwargs['value']}")  # label for the color scale
 
-    cbar2 = plt.colorbar(sc2)
-    cbar2.set_label(f"{kwargs['value']} (W)")  # label for the color scale
 
-    plt.title(f"Heatmap for {heatmap_data_name}: Avg power efficiency vs Wave Period and Amplitude")
+    plt.title(f"Heatmap for {heatmap_data_name} and {heatmap_data_name2 if 'batch_name2' in kwargs else ''}: Avg power efficiency vs Wave Period and Amplitude")
     plt.xlabel('Period (s)')
     plt.ylabel('Amplitude (m)')
     plt.grid()
-    plt.show()
-
 def error_code_analysis_plot(**kwargs):
     """
     Plot error code vs the specified parameters. to view the correlations #TODO
@@ -218,86 +246,136 @@ def error_code_analysis_plot(**kwargs):
         heatmap_data_name4 = kwargs['batch_name4']
         heatmap_data = pd.concat([heatmap_data, heatmap_data_batch4], ignore_index=True)
 
+    #Extract A and T from wave spectrum params
     heatmap_data['RegularWaves'] = heatmap_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('MonoChromatic')
     heatmap_data.loc[heatmap_data['RegularWaves'], ['A', 'T']] = heatmap_data.loc[heatmap_data['RegularWaves'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)').values #capture A,T all after that have a 0-9 or .
     heatmap_data[['A', 'T']] = heatmap_data[['A', 'T']].astype(float)
-    print(heatmap_data.head())
 
     heatmap_data['simcode color'] = heatmap_data[' SimReturnCode'].apply(lambda v: 'red' if v == 134 else 'green' if v == 0 else 'blue')
-    heatmap_data['marker'] = heatmap_data[' PhysicsStep'].apply(lambda v: 'o' if v == 0.007 else 's' if v == 0.01 else '^' if v == 0.015 else 'D')
-   # print(heatmap_data['marker'])
-    phystep1 = heatmap_data[heatmap_data[' PhysicsStep'] == 0.007]
-    phystep2 = heatmap_data[heatmap_data[' PhysicsStep'] == 0.01]
-    phystep3 = heatmap_data[heatmap_data[' PhysicsStep'] == 0.015]
-    phystep4 = heatmap_data[heatmap_data[' PhysicsStep'] != 0.007]
-    sc1 = plt.scatter(phystep1['T']-0.1, phystep1['A'], c=phystep1['simcode color'], edgecolors=phystep1['simcode color'], linewidths=0.5, s=100, marker='o', label='Physics Step 0.007s')
-    sc2 = plt.scatter(phystep2['T'], phystep2['A'], c=phystep2['simcode color'], edgecolors=phystep2['simcode color'], linewidths=0.5, s=100, marker='s', label='Physics Step 0.01s')
-    sc3 = plt.scatter(phystep3['T']+0.1, phystep3['A'], c=phystep3['simcode color'], edgecolors=phystep3['simcode color'], linewidths=0.5, s=100, marker='^', label='Physics Step 0.015s')
-    sc4 = plt.scatter(phystep4['T']+0.2, phystep4['A'], c=phystep4['simcode color'], edgecolors=phystep4['simcode color'], linewidths=0.5, s=100, marker='d', label='Physics Step 0.02')
-    #sc2 = plt.scatter(heatmap_data['T'], heatmap_data['A'], c=heatmap_data['simcode color'], edgecolors=heatmap_data['simcode color'], linewidths=0.5, s=100, marker='D')
+
+    if 'physics_step_compare' in kwargs and kwargs['physics_step_compare'] is True:
+        #heatmap_data['marker'] = heatmap_data[' PhysicsStep'].apply(lambda v: 'o' if v == 0.007 else 'd' if v == 0.01 else '^' if v == 0.015 else 'D')#TODO: believe this is no longer working
+        print('in physics step compare')
+
+        phystep1 = heatmap_data[heatmap_data[' PhysicsStep'] == 0.007]
+        phystep2 = heatmap_data[heatmap_data[' PhysicsStep'] == 0.01]
+        phystep3 = heatmap_data[heatmap_data[' PhysicsStep'] == 0.015]
+        phystep4 = heatmap_data[heatmap_data[' PhysicsStep'] == 0.02]
+        sc1 = plt.scatter(phystep1['T']-0.1, phystep1['A'], c=phystep1['simcode color'], edgecolors=phystep1['simcode color'], linewidths=0.5, s=100, marker='o', label='Physics Step 0.007s')
+        sc2 = plt.scatter(phystep2['T'], phystep2['A'], c=phystep2['simcode color'], edgecolors=phystep2['simcode color'], linewidths=0.5, s=100, marker='d', label='Physics Step 0.01s')
+        sc3 = plt.scatter(phystep3['T']+0.1, phystep3['A'], c=phystep3['simcode color'], edgecolors=phystep3['simcode color'], linewidths=0.5, s=100, marker='^', label='Physics Step 0.015s')
+        sc4 = plt.scatter(phystep4['T']+0.2, phystep4['A'], c=phystep4['simcode color'], edgecolors=phystep4['simcode color'], linewidths=0.5, s=100, marker='D', label='Physics Step 0.02')
+        #sc2 = plt.scatter(heatmap_data['T'], heatmap_data['A'], c=heatmap_data['simcode color'], edgecolors=heatmap_data['simcode color'], linewidths=0.5, s=100, marker='D')
+
+    if 'damping_altered' in kwargs and kwargs['damping_altered'] == True:
+        if 'physics_step_only' in kwargs:
+            heatmap_data = heatmap_data[heatmap_data[' PhysicsStep'] == kwargs['physics_step_only']] #the only physics step used in this batch should be filtered
+        else:
+            raise ValueError("When using damping_altered=True, must provide physics_step_only=value to filter by physics step")
+         
+        heatmap_data['marker'] = heatmap_data[' ScaleFactor'].apply(lambda v: 'o' if v == 0.75 else 's' if v == 1.25 else '^' if v == 0.015 else 'd')
+
+        damp1 = heatmap_data[heatmap_data[' ScaleFactor'] == 0.75]
+        damp2 = heatmap_data[heatmap_data[' ScaleFactor'] == 1.0]
+        damp3 = heatmap_data[heatmap_data[' ScaleFactor'] == 1.25]
+        sc1 = plt.scatter(damp1['T']-0.05, damp1['A'], c=damp1['simcode color'], edgecolors=damp1['simcode color'], linewidths=0.5, s=100, marker='o', label='Damping Scale 0.75')
+        sc2 = plt.scatter(damp2['T'], damp2['A'], c=damp2['simcode color'], edgecolors=damp2['simcode color'], linewidths=0.5, s=100, marker='s', label='Damping Scale 1.0')
+        sc3 = plt.scatter(damp3['T']+0.05, damp3['A'], c=damp3['simcode color'], edgecolors=damp3['simcode color'], linewidths=0.5, s=100, marker='^', label='Damping Scale 1.25')
 
     plt.title(f"Simcode map for {heatmap_data_name} and {heatmap_data_name2 if 'batch_name2' in kwargs else ''} and {heatmap_data_name3 if 'batch_name3' in kwargs else ''}: Simcode 0=green, 134=red, else=blue")
     plt.xlabel('Period (s)')
     plt.ylabel('Amplitude (m)')
     plt.grid()
 
-    #Creating Breaking line
-    T = {'T': np.linspace(heatmap_data['T'].min(), heatmap_data['T'].max(), 1000)}
-    d = 80 #depth - hardcoded for MBARI WEC
+    if 'breaking_line' in kwargs and kwargs['breaking_line'] == True:
+        #Creating Breaking line
+        T = {'T': np.linspace(heatmap_data['T'].min(), heatmap_data['T'].max(), 1000)}
+        d = 80 #depth - hardcoded for MBARI WEC
 
-    bounding_breaking = pd.DataFrame(T)
-    bounding_breaking['wavenum'] = wave_operations.wavenum(bounding_breaking['T'], depth=d)
-    bounding_breaking['length'] = 2*np.pi/bounding_breaking['wavenum']
-    bounding_breaking['d/L'] = d / bounding_breaking['length']         # Helper for condition calculation
+        bounding_breaking = pd.DataFrame(T)
+        bounding_breaking['wavenum'] = wave_operations.wavenum(bounding_breaking['T'], depth=d)
+        bounding_breaking['length'] = 2*np.pi/bounding_breaking['wavenum']
+        bounding_breaking['d/L'] = d / bounding_breaking['length']         # Helper for condition calculation
 
-    # Define conditions
-    conditions = [
-        (bounding_breaking['d/L'] >= 0.5), # Deep water
-        (bounding_breaking['d/L'] <= 0.05)  # Shallow water
-    ]
+        # Define conditions
+        conditions = [
+            (bounding_breaking['d/L'] >= 0.5), # Deep water
+            (bounding_breaking['d/L'] <= 0.05)  # Shallow water
+        ]
 
-    # Define corresponding choices (amplitudes)
-    choices = [
-        0.142 * bounding_breaking['length'] / 2,
-        0.78 * d / 2
-    ]
+        # Define corresponding choices (amplitudes)
+        choices = [
+            0.142 * bounding_breaking['length'] / 2,
+            0.78 * d / 2
+        ]
 
-    # Apply conditions; use the "else" (transitional) logic as the default
-    bounding_breaking['amp_b'] = np.select(
-        conditions, 
-        choices, 
-        default=0.142 * bounding_breaking['length'] * np.tanh(bounding_breaking['wavenum']*d) / 2
-    )
+        # Apply conditions; use the "else" (transitional) logic as the default
+        bounding_breaking['amp_b'] = np.select(
+            conditions, 
+            choices, 
+            default=0.142 * bounding_breaking['length'] * np.tanh(bounding_breaking['wavenum']*d) / 2
+        )
 
-    # Now plot
-    print(bounding_breaking.to_string())
-    plt.plot(bounding_breaking['T'], bounding_breaking['amp_b'], color='blue', label='Breaking Wave Limit')
+        # Now plot
+        #print(bounding_breaking.to_string())
+        plt.plot(bounding_breaking['T'], bounding_breaking['amp_b'], color='blue', label='Breaking Wave Limit')
 
-    #Pre-transitional relic
-    T = np.linspace(heatmap_data['T'].min(), heatmap_data['T'].max() if heatmap_data['T'].max() < 11 else 8, 1000)
-    Ab = (T**2 *0.22)/2 #Height (H = .142*g/(pi*2)) divided by 2 to get amplitude
-    plt.plot(T, Ab, color='black', linestyle='--', label='Breaking Wave Limit Approximation - deep water')
-    #Pre-transitional relic
+        #Pre-transitional relic
+        T = np.linspace(heatmap_data['T'].min(), heatmap_data['T'].max() if heatmap_data['T'].max() < 11 else 8, 1000)
+        Ab = (T**2 *0.22)/2 #Height (H = .142*g/(pi*2)) divided by 2 to get amplitude
+        plt.plot(T, Ab, color='black', linestyle='--', label='Breaking Wave Limit Approximation - deep water')
+        #Pre-transitional relic
 
-    #plt.plot (T, A*4, color='orange', linestyle='--', label='Breaking Wave Limit Approximation (Ho multiplied by 2)')
-    #plt.plot(T, A*2, color='blue', linestyle='--', label='Breaking Wave Limit Approximation (Ho not divided by 2)')
+        #plt.plot (T, A*4, color='orange', linestyle='--', label='Breaking Wave Limit Approximation (Ho multiplied by 2)')
+        #plt.plot(T, A*2, color='blue', linestyle='--', label='Breaking Wave Limit Approximation (Ho not divided by 2)')
     plt.legend()
 
+def y_data_to_float(y_data): ##TODO
+    """
+    Convert y_data to float, handling errors.
+    """
+    print(y_data.dtypes, ' before conversion to float')
+    print(y_data, ' before conversion to float')
+    y_data = y_data.apply(pd.to_numeric, errors='coerce')#TODO:Figure out why these errors must be coerced
+    #print(y_data['SC Load Cell (lbs)'], ' before conversion to float')
+    print(y_data.dtypes, 'after conversion to float')
+    return y_data
+    # print(y_data.dtypes, ' before conversion to float')
+    # try:
+    #     y_data_float = y_data.astype(float)
+    #     print(y_data_float, ' converted to float')
+    #     print(y_data.dtypes, ' before conversion to float')
+    #      return y_data_float
+    # except ValueError:
+    #     print(f"Error converting y_data to float: {y_data}")
+    #     return None
 ##################TESTING##################
 def main():
     #plot_data(batch_name='batch_results_20251102162754_1', x=' PhysicsStep', y='max_spring_range', remove_end_runs=2)
     #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' XB X Rate', y2=' XB Y Rate', y3=' XB Z Rate')
-    #plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
+    ##plot_data_runs(pblog_name='results_run_2_20251121161212\\pblog', x=' Timestamp (epoch seconds)', y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
+    ###plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #use for transient solution, originally plotted wrong
+    
     #plot_data_runs(pblog_name='results_run_4_20251121162305', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB Down Vel')
     #plot_data_runs(pblog_name='results_run_9_20251208125330\\pblog', x=' Timestamp (epoch seconds)', y=' SC Range Finder (in)')
     #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB X Rate', y4=' XB Z Rate')
     #plot_data_runs(pblog_name='results_run_1_20251208101612\\pblog', x=' Timestamp (epoch seconds)', y=' PC Battery Curr (A)', y2=' PC Load Dump Current (A)')
-   # plot_data_runs(pblog_name='results_run_1_20251208101612\\pblog', x=' Timestamp (epoch seconds)', y=' PC RPM')
+    plot_data_runs(pblog_name='results_run_15_20260114113725/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
+    plot_data_runs(pblog_name='results_run_19_20260114114647/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
+    plot_data_runs(pblog_name='results_run_25_20260114120200/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
+    plot_data_runs(pblog_name='results_run_26_20260114120259/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
+    plot_data_runs(pblog_name='results_run_31_20260114121314/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
+    plot_data_runs(pblog_name='results_run_49_20260114124445/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
+    plot_data_runs(pblog_name='results_run_51_20260114124542/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
+    plot_data_runs(pblog_name='results_run_55_20260114125154/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
+    plot_data_runs(pblog_name='results_run_56_20260114125255/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
 
-    #hack_heatmap_plot(b atch_name='batch_results_20251208124051', value='avg_tot_power')
-    #hack_heatmap_plot(batch_name='batch_results_20251208191310', value='avg_tot_power')
-    error_code_analysis_plot(batch_name='batch_results_20251217001004', batch_name2='batch_results_20251208124051', batch_name3='batch_results_20251208191310', batch_name4='batch_results_20251218153359')
-
+    #hack_heatmap_plot(batch_name='batch_results_20251208124051', value='avg_tot_power')
+    #hack_heatmap_plot(batch_name='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step=0.01)
+    #error_code_analysis_plot(batch_name='batch_results_20251217001004', batch_name2='batch_results_20251208124051', batch_name3='batch_results_20260110154141', batch_name4='batch_results_20251218153359') #batch_results_20251208191310
+    ##error_code_analysis_plot(batch_name='batch_results_20260110154141', breaking_line=False, physics_step_compare=True) 
+    ##error_code_analysis_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', breaking_line=True, damping_altered=True, physics_step_only=0.01) #batch_results_20260114105529 is for the two different physics steps
+    ###hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=True, damping_values=True)
     plt.show()
 ##################DONE TESTING##################
 

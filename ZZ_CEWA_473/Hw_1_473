@@ -1,0 +1,184 @@
+import numpy as np
+
+#from Mbari_Wec_Compare import wave_operations as wave_ops
+
+def wavenum(period,depth,tolerance=1e-6,max_iterations=10):
+    """
+    Linear dispersion relation wavenumber solver.
+    k = wavenum(period,depth)
+    Solves for the wave-numbers 'k' for a given depth that satisfy the
+    dispersion relation: omega^2 = g*k*tanh(k*depth) using the
+    Newton-Raphson method.
+
+        Modified from script created on Fri Apr 2 08:05:26 2021
+        @author: sdbrenner
+    """
+    import numpy as np
+    #convert period to angular frequency
+    omega = 2*np.pi/period
+
+    g = 9.81
+    # initial guess based on Fenton and McKee, 1990:
+    k0 = omega**2/g
+    kn = k0* ( np.tanh((k0*depth)**(3/4)) )**(-2/3)
+    converged = 0 #convergence flag
+    # iterate with a Newton-Raphson method:
+    for n in range(max_iterations):
+        err = np.abs( omega**2 - g*kn*np.tanh(kn*depth) )
+        if err<tolerance: #pre-debug: if all(err<tolerance):
+            converged = 1
+            break
+        fkn = g*kn*np.tanh(kn*depth) - omega**2
+        dfkn = g*np.tanh(kn*depth) + g*depth*kn/np.cosh(kn*depth)**2
+        kn = kn - fkn/dfkn
+    if converged == 0:
+        print('did not converge')
+    return kn
+
+def part1():
+    wave_t = np.array([4, 12, 8, 16])
+    wave_d = np.array([5, 10, 100, 4000])
+    wave_h = np.array([1,2,3,5])
+    d_over_l = np.zeros(len(wave_t))
+    kns = np.zeros(len(wave_t))
+    L = np.zeros(len(wave_t))
+    c = np.zeros(len(wave_t))
+    u_max = np.zeros(len(wave_t))
+    w_max = np.zeros(len(wave_t))
+
+    for i in range(len(wave_t)):
+        kns[i] = wavenum(wave_t[i], wave_d[i])
+        L[i] = 2 * np.pi / kns[i]
+        d_over_l[i] = wave_d[i] / L[i]
+        print(f"For wave period {wave_t[i]}s and depth {wave_d[i]}, k = {kns[i]}, d/L = {d_over_l[i]}")
+        if d_over_l[i] >= 0.5: #Deep water wave
+            c[i] = 9.81*wave_t[i]/(2*np.pi)
+            u_max[i] = 9.81*wave_h[i]/(2*c[i])
+            w_max[i] = u_max[i]
+        elif d_over_l[i] <= 0.05: #Shallow water wave
+            c[i] = np.sqrt(9.81*wave_d[i])
+        else: #Intermediate depth wave
+            c[i] = L[i]/wave_t[i]
+            u_max[i] = (np.pi*wave_h[i]/(wave_t[i])*(np.cosh(kns[i]*wave_d[i])/np.sinh(kns[i]*wave_d[i])))
+            w_max[i] = (np.pi*wave_h[i]/(wave_t[i]))
+        print(f"Wave period {wave_t[i]}s, depth {wave_d[i]}, c = {c[i]}, u_max = {u_max[i]}, w_max = {w_max[i]}")
+    print("Done with part 1 and 2")
+
+    #Part 3 - Pressures
+    p_hydro = np.zeros(len(wave_t))
+    p_tot = np.zeros(len(wave_t))
+    K_p = np.zeros(len(wave_t))
+    p_max_sol = np.zeros(len(wave_t))
+
+    for i in range(len(wave_t)):
+        p_hydro[i] = 1025 * 9.81 * wave_d[i]
+        K_p[i] = np.cosh(kns[i]*(-wave_d[i]+wave_d[i]))/np.cosh(kns[i]*wave_d[i])
+        p_tot[i] = 1025 * 9.81 * (wave_d[i] + K_p[i]*w_max[i]) #this is potentially wrong, not the solution provided not sure why not
+        p_max_sol[i] = 1025 * 9.81 * (K_p[i] * wave_h[i]/2)
+        print(f"For wave p eriod {wave_t[i]}s and depth {wave_d[i]}, p_hydro = {p_hydro[i]}, K_p = {K_p[i]}, p_tot = {p_tot[i]}, p_max_sol = {p_max_sol[i]}")
+    
+    #Part 4
+    cg = np.zeros(len(wave_t))
+    E = np.zeros(len(wave_t))
+    flux = np.zeros(len(wave_t))
+
+    for i in range(len(wave_t)):
+        E[i] = (1/8)*1025*9.81*wave_h[i]**2
+
+        if d_over_l[i] >= 0.5: #Deep water wave
+            cg[i] = c[i]/2
+        elif d_over_l[i] <= 0.05: #Shallow water wave
+            cg[i] = c[i]
+        else: #Intermediate depth wave
+            cg[i] = c[i]/2 * (1 + (2*kns[i]*wave_d[i])/np.sinh(2*kns[i]*wave_d[i]))
+
+        flux[i] = E[i]*cg[i]
+        print(f"For wave period {wave_t[i]}s and depth {wave_d[i]}, cg = {cg[i]}, E = {E[i]}, flux = {flux[i]}")
+
+    #Part 5
+    stokes_drift = np.zeros(len(wave_t))
+    y_axis = np.zeros(len(wave_t)) #to find place on nonlinear graph
+    x_axis = np.zeros(len(wave_t))
+
+    for i in range(len(wave_t)):
+        stokes_drift[i] = (wave_h[i]**2 * kns[i]**2 * c[i])/(8) * (np.cosh(2*kns[i]*wave_d[i]))/np.sinh(kns[i]*wave_d[i])**2
+        print(f"For wave period {wave_t[i]}s and depth {wave_d[i]}, Stokes Drift = {stokes_drift[i]}")
+        y_axis[i] = wave_h[i]/(9.818*wave_t[i]**2)
+        x_axis[i] = wave_d[i]/(9.81*wave_t[i]**2)
+        print(f"For wave period {wave_t[i]}s and depth {wave_d[i]}, x_axis = {x_axis[i]}, y_axis = {y_axis[i]}")
+        
+
+def part2_1_2():
+    t = 9
+    h =2.4
+    g= 9.81
+    d= 100
+    u = False
+    while u == False:
+        k = wavenum(t,d)
+        L = 2 * np.pi / k
+        uv = h*g*t/(2*L) * 1/np.sinh(k*d)
+        if uv <= .25:
+            d = d - 0.1
+            #print(f'{d}, d')
+        else:
+            u = True
+            print(f"Final depth is {d}m for wave period {t}s and height {h}m with u = {uv}")
+
+    l_deep = g*t**2/(2*np.pi)
+    k_deep = 2 * np.pi / l_deep
+    usurf = h*np.pi/(t) * np.exp(k_deep*0)
+    z_base = (np.log(usurf*0.05 * t / (np.pi *h))) / k_deep
+    print(f"Deep water wave base is at {z_base}m for wave period {t}s and height {h}m with usurf = {usurf}")
+    
+    base = False
+    while base == False:
+        k = wavenum(t,d)
+        L = 2 * np.pi / k
+        ub = h*g*t/(2*L) * 1/np.sinh(k*d) * np.cosh(k*0)
+        if ub <= .25:
+            d = d + 0.1
+            print(f'{d}, d')
+        else:
+            base = True
+            print(f"Final depth is {d}m for wave period {t}s and height {h}m with ub = {ub}")
+
+def part2_5():
+    t = 12
+    h =1.5
+    g= 9.81
+    d= 10
+    k= wavenum(t,d)
+    a=10
+    L = 2 * np.pi / k
+    c = L / t
+    n = 0.5*(1+((2*k*d)/np.sinh(2*k*d)))
+
+    h_deep = h / (np.sqrt(1/(2*n*np.tanh(k*d))))
+    c_deep = g*t/(2*np.pi)
+    a_deep = np.arcsin(np.sin(a*np.pi/180) * c_deep / c)
+    n_deep = 0.5
+
+    print(f"For wave period {t}s and depth {d}m, h_deep = {h_deep}, c_deep = {c_deep}, a_deep = {a_deep*180/np.pi} degrees")
+    print(f"k is {k}, L is {L}, c is {c}, n is {n}")
+
+    d_2 = 4
+    k_2 = wavenum(t,d_2)
+    L_2 = 2 * np.pi / k_2
+    c_2 = L_2 / t
+    n_2 = 0.5*(1+((2*k_2*d_2)/np.sinh(2*k_2*d_2)))
+    print(f"For wave period {t}s and depth {d_2}m, k is {k_2}, L is {L_2}, c is {c_2}, n is {n_2}")
+    h_2 = h_deep * (np.sqrt(1/(2*n_2*np.tanh(k_2*d_2))))
+    #int = np.sin(a_deep) * c_deep / c_2
+    #print(f"int value is {int}")
+    a_2 = np.arcsin(np.sin(a_deep*np.pi/180) * c_deep / c_2)
+    print(f"For wave period {t}s and depth {d_2}m, h_2 = {h_2}, a_2 = {a_2*180/np.pi} degrees")
+
+    print(f"h_2/d_2 = {h_2/d_2}")
+
+def main():
+    part1()
+    #part2_1_2()
+    #part2_5()
+if __name__ == '__main__':
+    main()

@@ -113,7 +113,7 @@ def _134Error_Testing(tmin, tmax, t_delta, grid_size_y):
     print("String 1 (Repeated T):", string_1)
     print("String 2 (Row Values):", string_2)
 def main():
-     _134Error_Testing(0.5, 35, 0.5, 0.5)
+     _134Error_Testing(0.5, 14, 0.5, 0.5)
 
 if __name__ == '__main__':
     main()

@@ -28,7 +28,7 @@ def wavenum(period,depth,tolerance=1e-6,max_iterations=10):
     # iterate with a Newton-Raphson method:
     for n in range(max_iterations):
         err = np.abs( omega**2 - g*kn*np.tanh(kn*depth) )
-        if err<tolerance: #pre-debug: if all(err<tolerance):
+        if np.all(err<tolerance): #pre-debug: if all(err<tolerance):
             converged = 1
             break
         fkn = g*kn*np.tanh(kn*depth) - omega**2

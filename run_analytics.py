@@ -181,11 +181,13 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
         raise FileNotFoundError(f"{pblog_name} not found")
 
     run_data = pd.read_csv(run_data_path)
+    #run_data = run_data.str.replace("\U00002013", "-").str.replace(r'^-$', '0', regex=True).astype(float) #this line is an attempt to fix dashes converting to objects instead of floats - not working currently
+
     return run_data
 
 ##################TESTING##################
 def main():
-    analytics(batch_name='batch_results_20251217001004', analytic=avg_tot_power, transient_investigation=False)
+    analytics(batch_name='batch_results_20260114105529', analytic=avg_tot_power, transient_investigation=False)
 
     
 ##################DONE TESTING##################
