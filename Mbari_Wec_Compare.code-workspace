@@ -23,6 +23,12 @@
 		},
 		{
 			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/ErrorCode12_18"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/MBARI Data"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/Empirical_Damping1_30"
 		}
 	],
 	"settings": {}

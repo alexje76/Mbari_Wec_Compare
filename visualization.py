@@ -13,6 +13,8 @@ import matplotlib as mpl
 import pandas as pd
 import os
 import glob
+import textwrap
+import math
 
 import mainDF_management as mDF_mgmt 
 import run_analytics
@@ -68,7 +70,7 @@ def plot_data(**kwargs):
     plt.grid()
     plt.show()
 
-def plot_data_runs(**kwargs):
+def plot_data_runs_old(**kwargs):
     """
     Plot data for a run as a timeseries
     """
@@ -110,6 +112,54 @@ def plot_data_runs(**kwargs):
     plt.ylabel('')
 
     plt.title(f"Data Plot for {plot_data_name}: {y_name} vs {kwargs['x']}")
+    plt.legend(markerscale = 7)
+    #plt.grid()
+    #plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=9))
+
+    #plt.show()
+def plot_data_runs(**kwargs):
+    """
+    Plot data for a run as a timeseries
+    """
+    # Access the data
+    mainDF = mDF_mgmt.access_mainDF()    
+
+    # Use function pass to get data indices
+    run_data = run_analytics.get_data(**kwargs) #TODO: add in trim functionality
+    plot_data_name = kwargs.get('batch_name', kwargs.get('pblog_name')) #TODO: improve
+
+    plt.figure(figsize=(15, 9))
+    
+    # Define the keys to check in order
+    y_keys = ['y', 'y2', 'y3', 'y4']
+    active_y_names = []
+
+    for i, key in enumerate(y_keys):
+        if key in kwargs:
+            y_col = kwargs[key]
+            active_y_names.append(y_col)
+            
+            # Process and clean data
+            subset = run_data[[kwargs['x'], y_col]].dropna()
+            clean_data = y_data_to_float(subset)
+            
+            point_size = .5
+            
+            # Plot the specific series
+            plt.scatter(clean_data[kwargs['x']], clean_data[y_col], label=y_col, s=point_size)
+
+    # Dynamically build the title/label string
+    if len(active_y_names) > 1:
+        y_name = ", ".join(active_y_names[:-1]) + f" and {active_y_names[-1]}"
+    else:
+        y_name = active_y_names[0] if active_y_names else ""
+
+    #plt.xscale('log') #for physics step
+    plt.xlabel(kwargs['x'])
+    plt.ylabel('')
+
+    title = f"Data Plot for {plot_data_name}: {y_name} vs {kwargs['x']}"
+    plt.title(wrap_title(title))
     plt.legend(markerscale = 7)
     #plt.grid()
     #plt.gca().yaxis.set_major_locator(MaxNLocator(nbins=9))
@@ -157,14 +207,14 @@ def hack_heatmap_plot(**kwargs):
         heatmap_data = heatmap_data[heatmap_data[' PhysicsStep'] == kwargs['one_physics_step']]
 
     heatmap_data[['A', 'T']] = heatmap_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)') #capture A,T all after that have a 0-9 or .
+    heatmap_data[['A', 'T']] = heatmap_data[['A', 'T']].astype(float)
     g = 9.81
     row = 1020
     wec_diameter = 2.64 #meters
-    heatmap_data[['A', 'T']] = heatmap_data[['A', 'T']].astype(float)
 
     heatmap_data['flux'] = (((g**2)*row/8)*wec_diameter*(heatmap_data['A']**2) * (heatmap_data['T']))  # Flux, munltiplied by wec area to just get watts  TODO: implememnt the non simplified version
     heatmap_data['avg_pwr_eff'] = heatmap_data[kwargs['value']] / heatmap_data['flux']
-    #print(heatmap_data[['A', 'T', 'flux', kwargs['value'], 'avg_pwr_eff']])
+    #print(heatmap_data[['A', 'T', 'flux', kwargs['value'], 'avg_pwr_eff']]) 
 
     if 'error_removal' in kwargs and kwargs['error_removal'] == True:
         heatmap_data = heatmap_data[heatmap_data[' SimReturnCode'] == 0] #remove error
@@ -198,10 +248,12 @@ def hack_heatmap_plot(**kwargs):
         cbar.set_label("Power efficiency of incident wave")  # label for the color scale
 
     if 'val_plotted' in kwargs and kwargs['val_plotted'] is True:
-        cmap2 = mpl.colormaps['cool'] # Choose a colormap for power #TODO:Cmasher
+        cmap2 = mpl.colormaps['gist_rainbow'] # Choose a colormap for power #TODO:Cmasher -cool is another good option
     #print(heatmap_data[kwargs['value']].max())
     #print(heatmap_data[kwargs['value']].min())
-        norm2 = mpl.colors.LogNorm(vmin = 1, vmax=heatmap_data[kwargs['value']].max()) #log colormap with negative values clipped
+        #norm2 = mpl.colors.LogNorm(vmin = 1, vmax=heatmap_data[kwargs['value']].max()) #log colormap with negative values clipped
+        #norm2 = mpl.colors.Normalize(vmin=1, vmax=heatmap_data[kwargs['value']].max()) #Non-log colormap with negative values clipped
+        norm2 = mpl.colors.Normalize(vmin=1, vmax=heatmap_data[kwargs['value']].max()/3) #Non-log colormap with negative values clipped -divided by 2 for more color resolution
     #norm2 = mpl.colors.TwoSlopeNorm(vmin = heatmap_data[kwargs['value']].min(), vmax=heatmap_data[kwargs['value']].max(), vcenter=0) #center the colormap at 0
     #norm2.autoscale(heatmap_data[kwargs['value']]) #autoscale based on data, matching color map endpoints to data
         sc2 = plt.scatter(heatmap_data['T'], heatmap_data['A']+0.05, c=heatmap_data[kwargs['value']], cmap = cmap2, norm = norm2, edgecolors='black', linewidths=0.5, s=75, marker='p')
@@ -215,6 +267,7 @@ def hack_heatmap_plot(**kwargs):
     plt.ylabel('Amplitude (m)')
     plt.grid()
 def error_code_analysis_plot(**kwargs):
+
     """
     Plot error code vs the specified parameters. to view the correlations #TODO
     """
@@ -329,6 +382,179 @@ def error_code_analysis_plot(**kwargs):
         #plt.plot (T, A*4, color='orange', linestyle='--', label='Breaking Wave Limit Approximation (Ho multiplied by 2)')
         #plt.plot(T, A*2, color='blue', linestyle='--', label='Breaking Wave Limit Approximation (Ho not divided by 2)')
     plt.legend()
+def spectrum_plot(f, Szz, **kwargs):
+    """
+    Plot a wave spectrum.
+    f: frequency array
+    Szz: spectral density array
+    kwargs: additional parameters for title, labels, etc.
+
+    kwargs can include:
+        new_figure: bool, whether to create a new figure (default True)
+        period: bool, whether to plot period instead of frequency (default False)
+        ind_call: bool, whether this is an independent call (default True)
+        title: string for the plot title
+        annotate: bool, whether to annotate points with their values (default False) #currently only works for period, TODO: make it work for frequency as well
+    """
+    print("Plotting spectrum...")
+    if 'new_figure' in kwargs and kwargs['new_figure'] is False:
+        raise ValueError("Plotting on existing figure")
+    else:
+        plt.figure(figsize=(10, 6))
+
+    if 'period' in kwargs and kwargs['period'] is True:
+        f = np.array(f)
+        Szz = np.array(Szz)
+        T = 1 / f
+        plt.scatter(T, Szz)
+        plt.xlabel(kwargs.get('xlabel', 'Period (s)'))
+
+        T = np.round(T, 2)
+        Szz = np.round(Szz, 2)
+        if 'annotate' in kwargs and kwargs['annotate'] is True:
+            for i, txt in enumerate(zip(f, Szz)): ###adding annotation to each marker
+                 plt.annotate(f"({T[i]}, {Szz[i]})", 
+                    (T[i], Szz[i]), 
+                    textcoords="offset points", # Position label relative to point
+                    xytext=(0,10), # Offset (x,y)
+                    ha='center') # Horizontal alignment
+    else:
+        plt.scatter(f, Szz)
+        plt.xlabel(kwargs.get('xlabel', 'Frequency (Hz)'))
+
+    if 'title' in kwargs:
+        plt.title(kwargs.get('title'))
+    else:
+        plt.title('Wave Spectrum')
+
+    plt.ylabel(kwargs.get('ylabel', 'Spectral Density (m^2/Hz)'))
+    plt.grid()
+
+    if 'ind_call' in kwargs and kwargs['ind_call'] is False:
+        return
+    else:
+        plt.show()
+def damping_seed_comparison_plot(**kwargs):
+    """
+    Plot a comparison of damping seed values and power metrics, to investigate the impact of damping seed on simulation outcomes.
+    Designed to plot a variety of different seeds for each of a set of different wave spectra
+    
+    :param kwargs: Description
+    'kwargs'
+    'run_number'
+    metric: the metric to plot on the y axis
+    cols: the number of columns to use in the subplot grid (default 2)
+
+    """
+    #Access the data
+    mainDF = mDF_mgmt.access_mainDF()    
+    metric = kwargs.get('metric') #default to avg power if not specified
+
+    if 'batch_name' in kwargs and 'run_number' not in kwargs:
+        # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
+        batch_keys = ['batch_name'] + [f'batch_name{i}' for i in range(2, 5)]
+    
+        # List to collect individual DataFrames before final concatenation
+        frames_to_concat = []
+
+        for key in batch_keys:
+            if key in kwargs:
+                # Filter and copy the relevant data
+                temp_df = mainDF[mainDF['batch_file_name'] == kwargs[key]].copy()
+                frames_to_concat.append(temp_df)
+            
+                # Dynamically set variables like heatmap_data_name, heatmap_data_name2, etc.
+                # Note: Using a dictionary is often cleaner than dynamic variable names
+                suffix = key.replace('batch_name', '')
+                globals()[f'heatmap_data_name{suffix}'] = kwargs[key]
+
+        # Efficiently combine all collected data at once
+        if frames_to_concat:
+            function_data = pd.concat(frames_to_concat, ignore_index=True)
+
+    # MONOCHROMATIC: Extract A and T
+    function_data['RegularWaves'] = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('MonoChromatic')
+    function_data.loc[function_data['RegularWaves'], ['A', 'T']] = (
+        function_data.loc[function_data['RegularWaves'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)').values 
+        )
+    # BRETSCHNEIDER: Extract Hs and Tp
+    function_data['Bretschneider'] = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('Bretschneider')
+    function_data.loc[function_data['Bretschneider'], ['Hs', 'Tp']] = (
+        function_data.loc[function_data['Bretschneider'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'Hs:([0-9.]+);Tp:([0-9.]+)').values
+    )
+    # CUSTOM: Extract the first f and Szz values
+    # This regex looks for 'f:' or 'Szz:' and grabs the first decimal number after it
+    function_data['Custom'] = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('Custom')
+    function_data.loc[function_data['Custom'], ['f_first', 'Szz_first']] = (
+        function_data.loc[function_data['Custom'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'f:([0-9.]+).*Szz:([0-9.]+)').values
+    )
+    # Convert all extracted columns to float
+    cols_to_convert = ['A', 'T', 'Hs', 'Tp', 'f_first', 'Szz_first']
+    function_data[cols_to_convert] = function_data[cols_to_convert].astype(float)
+
+    #Create a unified 'spectrum name' to be used for labeling
+    conditions = [
+        function_data['RegularWaves'],
+        function_data['Bretschneider'],
+        function_data['Custom']
+    ]
+    # Define the corresponding short string formats
+    choices = [
+        "Mono (A:" + function_data['A'].astype(str) + ", T:" + function_data['T'].astype(str) + ")",
+        "Bret (Hs:" + function_data['Hs'].astype(str) + ", Tp:" + function_data['Tp'].astype(str) + ")",
+        "Cust (f:" + function_data['f_first'].astype(str) + ", Szz:" + function_data['Szz_first'].astype(str) + ")"
+    ]
+    # Create a new column for the clean titles
+    function_data['short_label'] = np.select(conditions, choices, default="Unknown")
+
+    spectrum = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
+    # Begin Subplotting
+    n_specs = len(spectrum)
+    cols = kwargs.get('cols', 2) #default to 2 columns if not specified
+    rows = math.ceil(n_specs / cols)
+
+    # Create Figure with axes and grid of subplots
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 4), constrained_layout=True)
+    axes_flat = axes.flatten() # Flatten to 1D for easy iteration
+
+    markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']
+    sc = {}
+
+    for i, spec in enumerate(spectrum):
+        ax = axes_flat[i]
+        spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
+        
+        # Perform the scatter on the specific subplot axis
+        sc[i] = ax.scatter(
+            spec_data[' ScaleFactor'], 
+            spec_data[metric], 
+            marker=markers[i % len(markers)], 
+            label=spec
+        )
+        
+        if 'damping_values_avg' in kwargs and kwargs['damping_values_avg'] is True:
+            #Find and then plot the average for each damping scale as a red x
+            avg_data = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
+            ax.plot(
+                avg_data[' ScaleFactor'], 
+                avg_data[metric], 
+                color='red', 
+                marker='x', 
+                linestyle='-', 
+                linewidth=1.5,
+                label='Average'
+            )
+
+        # Subplot styling
+        display_title = spec_data['short_label'].iloc[0]
+        ax.set_title(f"Spectrum: {display_title}") # Truncate long names for title
+        ax.set_xlabel('Scale Factor')
+        ax.set_ylabel(metric)
+        ax.grid(True, linestyle='--', alpha=0.6)
+
+    # Hide any unused subplot axes
+    for j in range(i + 1, len(axes_flat)):
+        axes_flat[j].axis('off')
 
 def y_data_to_float(y_data): ##TODO
     """
@@ -349,6 +575,16 @@ def y_data_to_float(y_data): ##TODO
     # except ValueError:
     #     print(f"Error converting y_data to float: {y_data}")
     #     return None
+def wrap_title(*args):
+    """
+    args: title_test, width
+    Wraps title text to a specified width."""
+    # textwrap.wrap returns a list of strings, so we join them with \n
+    if len(args) < 2:
+        width = 60  # default width
+    else:
+        width = args[1]
+    return '\n'.join(textwrap.wrap(args[0], width))
 ##################TESTING##################
 def main():
     #plot_data(batch_name='batch_results_20251102162754_1', x=' PhysicsStep', y='max_spring_range', remove_end_runs=2)
@@ -360,22 +596,32 @@ def main():
     #plot_data_runs(pblog_name='results_run_9_20251208125330\\pblog', x=' Timestamp (epoch seconds)', y=' SC Range Finder (in)')
     #plot_data_runs(pblog_name='results_run_0_20251104192421\\pblog', x=' Timestamp (epoch seconds)', y=' XB North Vel', y2=' XB East Vel', y3=' XB X Rate', y4=' XB Z Rate')
     #plot_data_runs(pblog_name='results_run_1_20251208101612\\pblog', x=' Timestamp (epoch seconds)', y=' PC Battery Curr (A)', y2=' PC Load Dump Current (A)')
-    plot_data_runs(pblog_name='results_run_15_20260114113725/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
-    plot_data_runs(pblog_name='results_run_19_20260114114647/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
-    plot_data_runs(pblog_name='results_run_25_20260114120200/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
-    plot_data_runs(pblog_name='results_run_26_20260114120259/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
-    plot_data_runs(pblog_name='results_run_31_20260114121314/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
-    plot_data_runs(pblog_name='results_run_49_20260114124445/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b
-    plot_data_runs(pblog_name='results_run_51_20260114124542/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
-    plot_data_runs(pblog_name='results_run_55_20260114125154/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
-    plot_data_runs(pblog_name='results_run_56_20260114125255/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')
+    # plot_data_runs(pblog_name='results_run_15_20260114113725/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_19_20260114114647/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_25_20260114120200/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_26_20260114120259/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_31_20260114121314/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_49_20260114124445/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)')#b #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_51_20260114124542/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_55_20260114125154/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #Trying to chase down the 134 error by comparing a bunch of yaws
+    # plot_data_runs(pblog_name='results_run_56_20260114125255/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #Trying to chase down the 134 error by comparing a bunch of yaws
+
+    # plot_data_runs(pblog_name='results_run_0_20260123185817/pblog', x=' Timestamp (epoch seconds)',  y=' PC Load Dump Current (A)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #Gui Run 0
+    # plot_data_runs(pblog_name='results_run_1_20260123190035/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #Gui Run 1
+
+    # plot_data_runs(pblog_name='results_run_0_20260123185204/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #No GUI Run 0
+    # plot_data_runs(pblog_name='results_run_1_20260123185414/pblog', x=' Timestamp (epoch seconds)',  y=' XB Pitch Angle (deg)', y2='  XB Roll XB Angle (deg)', y3=' XB Yaw Angle (deg)') #No GUI Run 1
+
 
     #hack_heatmap_plot(batch_name='batch_results_20251208124051', value='avg_tot_power')
     #hack_heatmap_plot(batch_name='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step=0.01)
     #error_code_analysis_plot(batch_name='batch_results_20251217001004', batch_name2='batch_results_20251208124051', batch_name3='batch_results_20260110154141', batch_name4='batch_results_20251218153359') #batch_results_20251208191310
-    ##error_code_analysis_plot(batch_name='batch_results_20260110154141', breaking_line=False, physics_step_compare=True) 
+    #error_code_analysis_plot(batch_name='batch_results_20260110154141', breaking_line=False, physics_step_compare=True) 
     ##error_code_analysis_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', breaking_line=True, damping_altered=True, physics_step_only=0.01) #batch_results_20260114105529 is for the two different physics steps
-    ###hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=True, damping_values=True)
+    hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=True, damping_values=True)
+    
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
+    plt.tight_layout()
     plt.show()
 ##################DONE TESTING##################
 

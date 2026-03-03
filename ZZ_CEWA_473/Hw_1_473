@@ -142,6 +142,7 @@ def part2_1_2():
         else:
             base = True
             print(f"Final depth is {d}m for wave period {t}s and height {h}m with ub = {ub}")
+            print(f"Final k is {k}, L is {L}")
 
 def part2_5():
     t = 12
@@ -176,9 +177,25 @@ def part2_5():
 
     print(f"h_2/d_2 = {h_2/d_2}")
 
+def part3_3():
+    d= 3
+    t =12
+    h_0 = 2
+
+    k = wavenum(t,d)
+    print(f"k is {k}, tanh is {np.tanh(k*d)}")
+
+def midterm():
+    d = 4000
+    t = 600
+    k = wavenum(t,d)
+    print(f"k is {k}, tanh is {np.tanh(k*d)}")
+    print(f"cosh(k*d) is {np.cosh(k*d)}, k*d is {k*d}")
 def main():
-    part1()
+    #part1()
     #part2_1_2()
     #part2_5()
+    #part3_3()
+    midterm()
 if __name__ == '__main__':
     main()
