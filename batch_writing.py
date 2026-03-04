@@ -286,10 +286,7 @@ def main():
     # print_custom_spectrum(f,szz)
     ###
     spectrum_nums = spectrums.spectrum_list()
-    for i in spectrum_nums:
-        f, szz = spectrums.spectrum(i, "spotter")
-        #print(f"Frequency values for spectrum {i}: {f}")
-        visualization.spectrum_plot(f, szz, period=True, title=f"MBARI 2022 Spectrum {i}", annotate=True)
+    visualization.plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=3)
     ###
 
 

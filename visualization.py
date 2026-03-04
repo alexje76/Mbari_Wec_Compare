@@ -19,6 +19,7 @@ import math
 import mainDF_management as mDF_mgmt 
 import run_analytics
 import wave_operations
+import spectrums
 
 def plot_data(**kwargs):
     """
@@ -407,6 +408,7 @@ def spectrum_plot(f, Szz, ax = None, **kwargs):
     default_xlabel = 'Frequency (Hz)'
 
     if kwargs.get('period', False):
+        #print(x_data.dtype)
         x_data = 1 / x_data
         default_xlabel = 'Period (s)'
 
@@ -431,6 +433,71 @@ def spectrum_plot(f, Szz, ax = None, **kwargs):
     if 'ind_call' in kwargs and kwargs['ind_call'] is False:
         return
     else:
+        plt.show()
+def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols=2, **kwargs):
+    """
+    Plots multiple spectrums on the same axes for comparison, with dynamic styling based on the type of spectrum and other parameters.
+
+    -------
+    Parameters:
+        spectrum_nums: list of spectrum numbers to plot
+        plots_per_page: number of spectrums to plot per page (default 6)
+        types: list of spectrum types to include (e.g., ["spotter", "bretschneider", "jonswap"]) or 'all' for all types (default None)
+        **kwargs: additional parameters for styling and plot configuration, such as 'period' to indicate whether to plot period instead of frequency.
+            Period: bool, whether to plot period instead of frequency (default False)
+            n_cols: number of columns in the subplot grid (default 2)
+    ------
+    Returns:
+        None (displays the plots)
+    """
+    period = kwargs.get('period', False)
+    total_plots = len(spectrum_nums)
+    
+    # Define available models and their plotting styles
+    models = {
+        "spotter": {"label": "Spotter", "color": "blue", "fmt": "scatter", "alpha": 0.7},
+        "bretschneider": {"label": "Bretschneider", "color": "orange", "fmt": "plot"},
+        "jonswap": {"label": "Jonswap", "color": "yellow", "fmt": "plot", "marker": "x"}
+    }
+    
+    # If types is None or 'all', use all keys in the models dict
+    selected_types = list(models.keys()) if (types is None or types == 'all') else types
+
+    for start_idx in range(0, total_plots, plots_per_page):
+        batch = spectrum_nums[start_idx : start_idx + plots_per_page]
+        n_rows = (len(batch) + 1) // n_cols
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows), sharey=True)
+        axes = axes.flatten()
+
+        for idx, i in enumerate(batch):
+            ax = axes[idx]
+            xlabel = 'Period (s)' if period else 'Frequency (Hz)'
+
+            # Dynamic plotting based on selection
+            for model_name in selected_types:
+                if model_name not in models: continue
+                
+                style = models[model_name]
+                f, szz = spectrums.spectrum(i, model_name)
+                x = 1/np.array(f) if period else np.array(f)
+                
+                if style.get("fmt") == "scatter":
+                    ax.scatter(x, szz, label=style["label"], color=style["color"], alpha=style.get("alpha", 1))
+                else:
+                    ax.plot(x, szz, label=style["label"], color=style["color"], marker=style.get("marker"))
+
+            # --- Styling ---
+            ax.set_title(f"Spectrum {i}")
+            ax.set_xlabel(xlabel)
+            if idx % 2 == 0: 
+                ax.set_ylabel('Spectral Density (m^2/Hz)')
+            ax.grid(True)
+            ax.legend()
+
+        for j in range(len(batch), len(axes)):
+            fig.delaxes(axes[j])
+
+        plt.tight_layout()
         plt.show()
 def damping_seed_comparison_plot(**kwargs):
     """
