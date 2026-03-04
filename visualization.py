@@ -383,57 +383,6 @@ def error_code_analysis_plot(**kwargs):
         #plt.plot (T, A*4, color='orange', linestyle='--', label='Breaking Wave Limit Approximation (Ho multiplied by 2)')
         #plt.plot(T, A*2, color='blue', linestyle='--', label='Breaking Wave Limit Approximation (Ho not divided by 2)')
     plt.legend()
-def spectrum_plot(f, Szz, ax = None, **kwargs):
-    """
-    Plot a wave spectrum.
-    f: frequency array
-    Szz: spectral density array
-    kwargs: additional parameters for title, labels, etc.
-
-    kwargs can include:
-        new_figure: bool, whether to create a new figure (default True)
-        period: bool, whether to plot period instead of frequency (default False)
-        ind_call: bool, whether this is an independent call (default True)
-        title: string for the plot title
-        annotate: bool, whether to annotate points with their values (default False)
-    """
-    #print("Plotting spectrum...")
-    #Axes creation
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 6))
-
-    # 2. Data Preparation
-    x_data = np.array(f)
-    y_data = np.array(Szz)
-    default_xlabel = 'Frequency (Hz)'
-
-    if kwargs.get('period', False):
-        #print(x_data.dtype)
-        x_data = 1 / x_data
-        default_xlabel = 'Period (s)'
-
-    # 3. Plotting
-    ax.scatter(x_data, y_data)
-
-    # 4. Annotation logic
-    if kwargs.get('annotate', False):
-        for x, y in zip(x_data, y_data):
-            ax.annotate(f"({x:.2f}, {y:.2f})", 
-                        (x, y), 
-                        textcoords="offset points", 
-                        xytext=(0, 10), 
-                        ha='center')
-
-    # 5. Styling
-    ax.set_title(kwargs.get('title', 'Wave Spectrum'))
-    ax.set_xlabel(kwargs.get('xlabel', default_xlabel))
-    ax.set_ylabel(kwargs.get('ylabel', 'Spectral Density (m^2/Hz)'))
-    ax.grid(True)
-
-    if 'ind_call' in kwargs and kwargs['ind_call'] is False:
-        return
-    else:
-        plt.show()
 def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols=2, **kwargs):
     """
     Plots multiple spectrums on the same axes for comparison, with dynamic styling based on the type of spectrum and other parameters.

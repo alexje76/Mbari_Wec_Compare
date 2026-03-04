@@ -130,16 +130,17 @@ def construct_bretschneider(spectrum_id, **kwargs):
 def read_spectrums():
     """
     Reads the spectrums csv file 
-    
-        Parameters
         ----------
-        Returns
-        spectrums_df: DataFrame containing the spectrums data
+        Parameters:
+            None
+        ----------
+        Returns:
+            spectrums_df: DataFrame containing the spectrums data
     """
     spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
     if os.path.exists(spectrums_csv):
         spectrums_df = pd.read_csv(spectrums_csv)
-        print(f"Spectrums data loaded with {len(spectrums_df)} rows and {len(spectrums_df.columns)} columns.")
+        #print(f"Spectrums data loaded with {len(spectrums_df)} rows and {len(spectrums_df.columns)} columns.")
     else:
         raise FileNotFoundError(f"{spectrums_csv} not found. Please ensure the file exists in the correct location.")
     
@@ -175,7 +176,6 @@ def remove_spectrum(spectrum_id, spectrum_type):
     """
     spectrums_df = read_spectrums()
     updated_df = spectrums_df.drop(spectrums_df[(spectrums_df['spectrum_id'] == spectrum_id) & (spectrums_df['spectrum_type'] == spectrum_type)].index)
-    print(updated_df)
     spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
     
     updated_df.to_csv(spectrums_csv, index=False)
