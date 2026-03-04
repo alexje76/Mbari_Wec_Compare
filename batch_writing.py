@@ -2,6 +2,7 @@ import numpy as np
 import math
 import visualization
 import controller_funcs
+import spectrums
 
 """ def sub():
         for i in range(75, 166, 15):
@@ -158,14 +159,6 @@ def spectrum597():
     SzzMbari2022_597 = [0.002500608, 0.007501824, 0.054513663999999996, 0.19004620800000002, 0.954732544, 1.0617589760000001, 0.29857382400000004, 0.401098752, 0.488118272, 0.615651328, 0.6571601920000001, 0.560635904, 0.401098752, 0.33458175999999995, 0.25356288, 0.22505472, 0.17504255999999999, 0.16103833599999998, 0.188045312, 0.16053862400000002, 0.11152793600000001, 0.098023424, 0.085020672, 0.082520064, 0.07201792, 0.054513663999999996, 0.045510656, 0.034508800000000006, 0.032008192000000005, 0.029007872, 0.026507264, 0.020004864, 0.020004864, 0.012003327999999999, 0.00950272, 0.008501248, 0.0055009279999999995, 0.004001792, 0.001501184]
     return(fMbari2022_597, SzzMbari2022_597)
 
-def spectrum_list():
-    """
-    Simple function to gather all the custom spectrums #TODO: put them in a data structure - todo after we get what is needed for directional spread info
-    #TODO add in the keywords to gather a subset
-    """
-    mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
-    spectrum_list = mbari_2022
-    return spectrum_list
 def szz2amp(f, szz):
     """
     Docstring for szz2amp
@@ -285,26 +278,19 @@ def damping(start, end, step):
 def main():
     # _134Error_Testing(0.5, 14, 0.5, 0.5)
     #_134_custom_spectrums()
-    ###
-    # spectrum_nums = spectrum_list()
-    # for i in spectrum_nums:
-    #     f, szz = globals()[f"spectrum{i}"]()
-    #     visualization.spectrum_plot(f, szz, period=True, title=f"MBARI 2022 Spectrum {i}")
-    ###
+    # ###
     #damping_ranges_spotter(0.5, 3)
-    seeds(1,20)
-    damping(0.5, 1.4, 0.1)
-    f, szz = spectrum198()
-    print_custom_spectrum(f,szz)
-
-    f, szz = spectrum260()
-    print_custom_spectrum(f,szz)
-
-    f, szz = spectrum384()
-    print_custom_spectrum(f,szz)
-
-    f, szz = spectrum597()
-    print_custom_spectrum(f,szz)
+    # seeds(1,20)
+    # damping(0.5, 1.4, 0.1)
+    # f, szz = spectrum198()
+    # print_custom_spectrum(f,szz)
+    ###
+    spectrum_nums = spectrums.spectrum_list()
+    for i in spectrum_nums:
+        f, szz = spectrums.spectrum(i, "spotter")
+        #print(f"Frequency values for spectrum {i}: {f}")
+        visualization.spectrum_plot(f, szz, period=True, title=f"MBARI 2022 Spectrum {i}", annotate=True)
+    ###
 
 
 

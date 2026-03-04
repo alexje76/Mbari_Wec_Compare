@@ -382,7 +382,7 @@ def error_code_analysis_plot(**kwargs):
         #plt.plot (T, A*4, color='orange', linestyle='--', label='Breaking Wave Limit Approximation (Ho multiplied by 2)')
         #plt.plot(T, A*2, color='blue', linestyle='--', label='Breaking Wave Limit Approximation (Ho not divided by 2)')
     plt.legend()
-def spectrum_plot(f, Szz, **kwargs):
+def spectrum_plot(f, Szz, ax = None, **kwargs):
     """
     Plot a wave spectrum.
     f: frequency array
@@ -394,41 +394,39 @@ def spectrum_plot(f, Szz, **kwargs):
         period: bool, whether to plot period instead of frequency (default False)
         ind_call: bool, whether this is an independent call (default True)
         title: string for the plot title
-        annotate: bool, whether to annotate points with their values (default False) #currently only works for period, TODO: make it work for frequency as well
+        annotate: bool, whether to annotate points with their values (default False)
     """
-    print("Plotting spectrum...")
-    if 'new_figure' in kwargs and kwargs['new_figure'] is False:
-        raise ValueError("Plotting on existing figure")
-    else:
-        plt.figure(figsize=(10, 6))
+    #print("Plotting spectrum...")
+    #Axes creation
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 6))
 
-    if 'period' in kwargs and kwargs['period'] is True:
-        f = np.array(f)
-        Szz = np.array(Szz)
-        T = 1 / f
-        plt.scatter(T, Szz)
-        plt.xlabel(kwargs.get('xlabel', 'Period (s)'))
+    # 2. Data Preparation
+    x_data = np.array(f)
+    y_data = np.array(Szz)
+    default_xlabel = 'Frequency (Hz)'
 
-        T = np.round(T, 2)
-        Szz = np.round(Szz, 2)
-        if 'annotate' in kwargs and kwargs['annotate'] is True:
-            for i, txt in enumerate(zip(f, Szz)): ###adding annotation to each marker
-                 plt.annotate(f"({T[i]}, {Szz[i]})", 
-                    (T[i], Szz[i]), 
-                    textcoords="offset points", # Position label relative to point
-                    xytext=(0,10), # Offset (x,y)
-                    ha='center') # Horizontal alignment
-    else:
-        plt.scatter(f, Szz)
-        plt.xlabel(kwargs.get('xlabel', 'Frequency (Hz)'))
+    if kwargs.get('period', False):
+        x_data = 1 / x_data
+        default_xlabel = 'Period (s)'
 
-    if 'title' in kwargs:
-        plt.title(kwargs.get('title'))
-    else:
-        plt.title('Wave Spectrum')
+    # 3. Plotting
+    ax.scatter(x_data, y_data)
 
-    plt.ylabel(kwargs.get('ylabel', 'Spectral Density (m^2/Hz)'))
-    plt.grid()
+    # 4. Annotation logic
+    if kwargs.get('annotate', False):
+        for x, y in zip(x_data, y_data):
+            ax.annotate(f"({x:.2f}, {y:.2f})", 
+                        (x, y), 
+                        textcoords="offset points", 
+                        xytext=(0, 10), 
+                        ha='center')
+
+    # 5. Styling
+    ax.set_title(kwargs.get('title', 'Wave Spectrum'))
+    ax.set_xlabel(kwargs.get('xlabel', default_xlabel))
+    ax.set_ylabel(kwargs.get('ylabel', 'Spectral Density (m^2/Hz)'))
+    ax.grid(True)
 
     if 'ind_call' in kwargs and kwargs['ind_call'] is False:
         return
