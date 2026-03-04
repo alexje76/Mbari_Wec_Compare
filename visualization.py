@@ -525,11 +525,19 @@ def damping_seed_comparison_plot(**kwargs):
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
         
         # Perform the scatter on the specific subplot axis
+        scatter_kwargs = {
+            'marker': markers[i % len(markers)],
+            'label': spec
+        }
+        
+        if not ('seed_coloration' in kwargs and kwargs['seed_coloration'] is False):
+            scatter_kwargs['c'] = spec_data[' Seed']
+            scatter_kwargs['cmap'] = 'tab20'
+        
         sc[i] = ax.scatter(
             spec_data[' ScaleFactor'], 
             spec_data[metric], 
-            marker=markers[i % len(markers)], 
-            label=spec
+            **scatter_kwargs
         )
         
         if 'damping_values_avg' in kwargs and kwargs['damping_values_avg'] is True:
