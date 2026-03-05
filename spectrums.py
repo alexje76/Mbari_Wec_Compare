@@ -11,6 +11,7 @@ import os
 import glob
 import json
 import ast
+import sys
 
 
 def full_spectrums():
@@ -112,7 +113,7 @@ def construct_bretschneider(spectrum_id, **kwargs):
     spotter_freq =np.array([0.0293, 0.03906, 0.04883, 0.05859, 0.06836, 0.07813, 0.08789, 0.09766, 0.10742, 0.11719, 0.12695, 0.13672, 0.14648, 0.15625, 0.16602, 0.17578, 0.18555, 0.19531, 0.20508, 0.21484, 0.22461, 0.23438, 0.24414, 0.25391, 0.26367, 0.27344, 0.2832, 0.29297, 0.30273, 0.3125, 0.32227, 0.33203, 0.35156, 0.38086, 0.41016, 0.43945, 0.46875, 0.49805, 0.6543])
     #interpolate to fill out the spectrum to be twice as dense
     x = np.arange(len(spotter_freq))
-    x_new = np.linspace(0, len(spotter_freq) - 1, len(spotter_freq) * 3 - 2)
+    x_new = np.linspace(0, len(spotter_freq) - 1, len(spotter_freq) * 3 - 2) #interpolate to have 3x the number of points, so 2 points between each original point
     spotter_freq_dense = np.interp(x_new, x, spotter_freq)
 
     bretschneider_szz = (5/16) * (Hs**2) * ((peak_freq**4) / (spotter_freq_dense**5)) * np.exp(-1.25 * (peak_freq/spotter_freq_dense)**4)
@@ -125,8 +126,36 @@ def construct_bretschneider(spectrum_id, **kwargs):
     })
 
     write_spectrums(temp_df)
-     
+def calculate_energy(spectrum_id, spectrum_type):
+    """
+    Calculates the energy of a spectrum by integrating the spectral density over frequency.
+    
+    Parameters:
+        spectrum_id: The ID of the spectrum to calculate energy for
+        spectrum_type: The type of the spectrum (e.g., 'spotter', 'bretschneider')
+    Returns:
+        energy: The calculated energy of the spectrum
+    """
+    f, szz = spectrum(spectrum_id, spectrum_type)
+    energy = np.trapezoid(szz, f)
+    return energy
 
+def calculate_all(metric, spectrum_type=None):
+    """
+    Calculates a specified metric for all spectrums of a given type.
+    
+    Parameters:
+        metric: The metric to calculate (e.g., 'energy')
+        spectrum_type: The type of spectrums to calculate the metric for (e.g., 'spotter', 'bretschneider')
+    """
+    df = read_spectrums()
+    if spectrum_type is not None:
+        df = df[df['spectrum_type'] == spectrum_type]
+    for _, row in df.iterrows():
+        df.loc[(df['spectrum_id'] == row['spectrum_id']) & (df['spectrum_type'] == row['spectrum_type']), metric] = globals()[f'calculate_{metric}'](row['spectrum_id'], row['spectrum_type'])
+    overwrite_spectrums(df)
+
+    #CSV handling
 def read_spectrums():
     """
     Reads the spectrums csv file 
@@ -145,7 +174,6 @@ def read_spectrums():
         raise FileNotFoundError(f"{spectrums_csv} not found. Please ensure the file exists in the correct location.")
     
     return spectrums_df
-
 def write_spectrums(df):
     """
     Writes the spectrums DataFrame to a CSV file
@@ -162,7 +190,25 @@ def write_spectrums(df):
     spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
     combined_df.to_csv(spectrums_csv, index=False)
     print(f"Spectrums data written to {spectrums_csv} with {len(combined_df)} rows and {len(combined_df.columns)} columns.")
-
+def overwrite_spectrums(df):
+    """
+    Writes the spectrums DataFrame to a CSV file
+    
+        Parameters
+        ----------
+        df: DataFrame containing the spectrums data to write
+        Returns
+        None
+    """
+    old_specs_df = read_spectrums()
+    usr_input = input("Type; 'Y' to overwrite old spectrums, if no entry defaults to keep original spectrums entries : ")
+    if usr_input.lower() == 'y':
+        spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+        df.to_csv(spectrums_csv, index=False)
+        print(f"Spectrums data overwritten to {spectrums_csv} with {len(df)} rows and {len(df.columns)} columns - old spectrums was {len(old_specs_df)} rows and {len(old_specs_df.columns)} columns.")
+    else:
+        print('Discarding new spectrums data, keeping original spectrums entries.')
+        return
 def remove_spectrum(spectrum_id, spectrum_type):
     """
     Removes a spectrum from the spectrums CSV file based on its ID and type
@@ -182,8 +228,7 @@ def remove_spectrum(spectrum_id, spectrum_type):
     print(f"Spectrums data written to {spectrums_csv} with {len(updated_df)} rows and {len(updated_df.columns)} columns, following dropping of spectrum ID {spectrum_id} and type {spectrum_type}.")
 
 def main():
-    for i, num in enumerate(spectrum_list()):
-        construct_bretschneider(num)
+    calculate_all('energy')
 
     #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
 

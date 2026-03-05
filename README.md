@@ -10,6 +10,8 @@ mbari_data_processing.py: Script to handle sequential chunks of the data process
 run_analytics.py: Script to process data from raw - calculating scalar values and currently some visualization (to be phased out)
 testing.py: Script acting as a temporary testing ground for in development code when direct testing would carry undue risk
 visualization.py: Module to visualize different graphs and metrics 
+spectrums.py: Module to handle the spectrums
+spectrums.csv: CSV file tha stores all of the spectrums
 
 ## Contributing
 Alex Eagan
