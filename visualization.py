@@ -395,6 +395,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
         **kwargs: additional parameters for styling and plot configuration, such as 'period' to indicate whether to plot period instead of frequency.
             Period: bool, whether to plot period instead of frequency (default False)
             n_cols: number of columns in the subplot grid (default 2)
+            metric_sv: a metric you want also represented - single value.
     ------
     Returns:
         None (displays the plots)
@@ -428,12 +429,17 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
                 
                 style = models[model_name]
                 f, szz = spectrums.spectrum(i, model_name)
+                metric_sv = spectrums.spectrum_metric_single_value(i, model_name, kwargs.get('metric_sv')) if kwargs.get('metric_sv') else None
                 x = 1/np.array(f) if period else np.array(f)
                 
+                label = style["label"]
+                if metric_sv is not None:
+                    label += f" ({kwargs.get('metric_sv')}: {metric_sv:.4f})" # Format to 2 decimal places
+
                 if style.get("fmt") == "scatter":
-                    ax.scatter(x, szz, label=style["label"], color=style["color"], alpha=style.get("alpha", 1))
+                    ax.scatter(x, szz, label=label, color=style["color"], alpha=style.get("alpha", 1))
                 else:
-                    ax.plot(x, szz, label=style["label"], color=style["color"], marker=style.get("marker"))
+                    ax.plot(x, szz, label=label, color=style["color"], marker=style.get("marker"))
 
             # --- Styling ---
             ax.set_title(f"Spectrum {i}")

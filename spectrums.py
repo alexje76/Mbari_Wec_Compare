@@ -87,6 +87,27 @@ def spectrum(spectrum_id, spectrum_type):
     szz = np.array(ast.literal_eval(szz))
     
     return f, szz
+def spectrum_metric_single_value(spectrum_id, spectrum_type, metric):
+    """
+    returns the metric for a spectrum
+
+    Parameters:
+        spectrum_id: integer ID of the spectrum to retrieve
+        spectrum_type: string type of the spectrum to retrieve ('spotter', 'bret...)
+    Returns:
+        metric: the metric value requested
+    """
+    read_spectrums_df = read_spectrums()
+    spectrum_df = read_spectrums_df[(read_spectrums_df['spectrum_id'] == spectrum_id) & (read_spectrums_df['spectrum_type'] == spectrum_type)]
+    
+    if spectrum_df.empty:
+        raise ValueError(f"Spectrum with ID {spectrum_id} and type {spectrum_type} not found.")
+    
+    if metric not in spectrum_df.columns:
+        raise ValueError(f"Metric '{metric}' not found in spectrum data.")
+    else:
+        metric_value = spectrum_df[metric].iloc[0]
+        return metric_value
 
 def construct_bretschneider(spectrum_id, **kwargs):
     """_summary_
