@@ -15,6 +15,7 @@ import os
 import glob
 import textwrap
 import math
+import scipy.integrate as integrate
 
 import mainDF_management as mDF_mgmt 
 import run_analytics
@@ -383,7 +384,7 @@ def error_code_analysis_plot(**kwargs):
         #plt.plot (T, A*4, color='orange', linestyle='--', label='Breaking Wave Limit Approximation (Ho multiplied by 2)')
         #plt.plot(T, A*2, color='blue', linestyle='--', label='Breaking Wave Limit Approximation (Ho not divided by 2)')
     plt.legend()
-def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols=2, **kwargs):
+def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols=2, cumsum=False, **kwargs):
     """
     Plots multiple spectrums on the same axes for comparison, with dynamic styling based on the type of spectrum and other parameters.
 
@@ -396,6 +397,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
             Period: bool, whether to plot period instead of frequency (default False)
             n_cols: number of columns in the subplot grid (default 2)
             metric_sv: a metric you want also represented - single value.
+            cumsum: bool, whether or not to plot the cumulative sum of the spectrum
     ------
     Returns:
         None (displays the plots)
@@ -431,7 +433,18 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
                 f, szz = spectrums.spectrum(i, model_name)
                 metric_sv = spectrums.spectrum_metric_single_value(i, model_name, kwargs.get('metric_sv')) if kwargs.get('metric_sv') else None
                 x = 1/np.array(f) if period else np.array(f)
-                
+                ## TODO: I do not think this is currently working
+                # if cumsum:
+                #     # Calculate cumulative trapezoidal integral (Energy)
+                #     # Use np.cumsum(szz_sorted * np.diff(f_sorted)) or simple cumsum:
+                #     y_cumsum = integrate.cumulative_trapezoid(szz, x, initial=0 ) / integrate.trapezoid(szz, x) if period else# Normalized %
+                #     # Or use actual energy: y_cumsum = np.cumsum(szz_sorted) * (f_sorted[1]-f_sorted[0])
+                    
+                #     # Create secondary axis for cumulative plot
+                #     ax2 = ax.twinx()
+                #     ax2.plot(x, y_cumsum, color=style["color"], linestyle='--', alpha=0.5)
+                #     ax2.set_ylabel('Cumulative Energy (%)') if idx % n_cols == (n_cols - 1) else None
+                # ##
                 label = style["label"]
                 if metric_sv is not None:
                     label += f" ({kwargs.get('metric_sv')}: {metric_sv:.4f})" # Format to 2 decimal places
@@ -502,6 +515,8 @@ def damping_seed_comparison_plot(**kwargs):
     function_data.loc[function_data['Bretschneider'], ['Hs', 'Tp']] = (
         function_data.loc[function_data['Bretschneider'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'Hs:([0-9.]+);Tp:([0-9.]+)').values
     )
+    
+
     # CUSTOM: Extract the first f and Szz values
     # This regex looks for 'f:' or 'Szz:' and grabs the first decimal number after it
     function_data['Custom'] = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('Custom')
@@ -540,10 +555,55 @@ def damping_seed_comparison_plot(**kwargs):
     markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']
     sc = {}
 
+    print(spectrums.read_spectrums()) #testing
+    full_names_spectrums_here = spectrums.read_spectrums()#testing
+
     for i, spec in enumerate(spectrum):
         ax = axes_flat[i]
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
-        
+
+
+        #TESTING
+        # 1. Clean the target string
+        target_str = str(spec_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]).strip()
+        f_val1, *szz_vals1 = [round(float(x), 4) for part in target_str.split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
+
+        # f_val2, *szz_vals2 = [round(float(x), 4) for part in full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
+        # # 2. Filter the reference DataFrame to find the matching row
+        # # This creates a new DataFrame containing only the row(s) that match
+        # matches = full_names_spectrums_here[
+        #     [round(float(x), 4) for part in full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 4)]] == f_val1, *szz_vals1
+        # ]
+
+        # 2. Extract and round the comparison values for the whole reference DataFrame
+        # We split the string column, extract the values, and expand them into new temporary columns
+        ref_parts = full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().str.split(';')
+
+        def extract_rounded(row_parts):
+            # Extracts 1 'f' and 3 'Szz' values, returning a flat list
+            vals = [round(float(x), 4) for part in row_parts if ':' in part 
+                    for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
+            return vals
+
+        # Apply extraction to the whole column
+        extracted_data = ref_parts.apply(extract_rounded)
+
+        # 3. Filter the DataFrame
+        # We compare the entire extracted list to our target list [f, szz1, szz2, szz3]
+        matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
+
+
+        # 3. Safely extract the first (and presumably only) match
+        if not matches.empty:
+            matching_row = matches.iloc[0]
+            # Now you can use matching_row['short_label'], etc.
+        else:
+            # This block runs if the string search found nothing
+            print(f"ERROR: No row found for {target_str}")
+            # Optional: print the first few reference strings to see why they don't match
+            print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
+
+            #END TESTING
         # Perform the scatter on the specific subplot axis
         scatter_kwargs = {
             'marker': markers[i % len(markers)],
@@ -574,8 +634,9 @@ def damping_seed_comparison_plot(**kwargs):
             )
 
         # Subplot styling
-        display_title = spec_data['short_label'].iloc[0]
-        ax.set_title(f"Spectrum: {display_title}") # Truncate long names for title
+        #display_title = spec_data['short_label'].iloc[0]
+        display_title = matching_row['spectrum_id'] #testing
+        ax.set_title(f"Spectrum: {matching_row['spectrum_id']}, {matching_row['spectrum_type']}") # Truncate long names for title
         ax.set_xlabel('Scale Factor')
         ax.set_ylabel(metric)
         ax.grid(True, linestyle='--', alpha=0.6)
@@ -646,12 +707,18 @@ def main():
     #error_code_analysis_plot(batch_name='batch_results_20251217001004', batch_name2='batch_results_20251208124051', batch_name3='batch_results_20260110154141', batch_name4='batch_results_20251218153359') #batch_results_20251208191310
     #error_code_analysis_plot(batch_name='batch_results_20260110154141', breaking_line=False, physics_step_compare=True) 
     ##error_code_analysis_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', breaking_line=True, damping_altered=True, physics_step_only=0.01) #batch_results_20260114105529 is for the two different physics steps
-    hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=True, damping_values=True)
+    #hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=True, damping_values=True)
     
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
+    #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
+    #damping_seed_comparison_plot(batch_name='batch_results_20260220105054', metric='avg_tot_power', cols=2, damping_values_avg=True)
+    damping_seed_comparison_plot(batch_name='batch_results_20260304113810', batch_name3='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
+    #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=1, damping_values_avg=True)
+    #plot_data_runs(pblog_name='results_run_1_20260220111851/pblog', x=' Timestamp (epoch seconds)',  y=' SC Range Finder (in)') #For repeat period
+    spectrum_nums = spectrums.spectrum_list()
+    #plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=True)
+    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=3, metric_sv='energy', cumsum=True)
     plt.tight_layout()
     plt.show()
 ##################DONE TESTING##################
-
 if __name__ == '__main__':
     main()
