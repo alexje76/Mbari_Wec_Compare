@@ -505,43 +505,6 @@ def damping_seed_comparison_plot(**kwargs):
         if frames_to_concat:
             function_data = pd.concat(frames_to_concat, ignore_index=True)
 
-    # MONOCHROMATIC: Extract A and T
-    function_data['RegularWaves'] = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('MonoChromatic')
-    function_data.loc[function_data['RegularWaves'], ['A', 'T']] = (
-        function_data.loc[function_data['RegularWaves'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)').values 
-        )
-    # BRETSCHNEIDER: Extract Hs and Tp
-    function_data['Bretschneider'] = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('Bretschneider')
-    function_data.loc[function_data['Bretschneider'], ['Hs', 'Tp']] = (
-        function_data.loc[function_data['Bretschneider'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'Hs:([0-9.]+);Tp:([0-9.]+)').values
-    )
-    
-
-    # CUSTOM: Extract the first f and Szz values
-    # This regex looks for 'f:' or 'Szz:' and grabs the first decimal number after it
-    function_data['Custom'] = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('Custom')
-    function_data.loc[function_data['Custom'], ['f_first', 'Szz_first']] = (
-        function_data.loc[function_data['Custom'], ' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'f:([0-9.]+).*Szz:([0-9.]+)').values
-    )
-    # Convert all extracted columns to float
-    cols_to_convert = ['A', 'T', 'Hs', 'Tp', 'f_first', 'Szz_first']
-    function_data[cols_to_convert] = function_data[cols_to_convert].astype(float)
-
-    #Create a unified 'spectrum name' to be used for labeling
-    conditions = [
-        function_data['RegularWaves'],
-        function_data['Bretschneider'],
-        function_data['Custom']
-    ]
-    # Define the corresponding short string formats
-    choices = [
-        "Mono (A:" + function_data['A'].astype(str) + ", T:" + function_data['T'].astype(str) + ")",
-        "Bret (Hs:" + function_data['Hs'].astype(str) + ", Tp:" + function_data['Tp'].astype(str) + ")",
-        "Cust (f:" + function_data['f_first'].astype(str) + ", Szz:" + function_data['Szz_first'].astype(str) + ")"
-    ]
-    # Create a new column for the clean titles
-    function_data['short_label'] = np.select(conditions, choices, default="Unknown")
-
     spectrum = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
     # Begin Subplotting
     n_specs = len(spectrum)
@@ -555,27 +518,17 @@ def damping_seed_comparison_plot(**kwargs):
     markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']
     sc = {}
 
-    print(spectrums.read_spectrums()) #testing
     full_names_spectrums_here = spectrums.read_spectrums()#testing
-
     for i, spec in enumerate(spectrum):
         ax = axes_flat[i]
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
 
-
-        #TESTING
-        # 1. Clean the target string
+        #Adding the code to create the titles for the plots
+        # Clean the target string of the simulator wave input
         target_str = str(spec_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]).strip()
         f_val1, *szz_vals1 = [round(float(x), 4) for part in target_str.split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
 
-        # f_val2, *szz_vals2 = [round(float(x), 4) for part in full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
-        # # 2. Filter the reference DataFrame to find the matching row
-        # # This creates a new DataFrame containing only the row(s) that match
-        # matches = full_names_spectrums_here[
-        #     [round(float(x), 4) for part in full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 4)]] == f_val1, *szz_vals1
-        # ]
-
-        # 2. Extract and round the comparison values for the whole reference DataFrame
+        # Extract and round the comparison values for the whole reference DataFrame
         # We split the string column, extract the values, and expand them into new temporary columns
         ref_parts = full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().str.split(';')
 
@@ -588,22 +541,27 @@ def damping_seed_comparison_plot(**kwargs):
         # Apply extraction to the whole column
         extracted_data = ref_parts.apply(extract_rounded)
 
-        # 3. Filter the DataFrame
-        # We compare the entire extracted list to our target list [f, szz1, szz2, szz3]
+        # Filter the DataFrame
+        #Compare the entire extracted list to our target list [f, szz1, szz2, szz3]
         matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
 
-
-        # 3. Safely extract the first (and presumably only) match
+        #Safely extract the first (and presumably only) match
         if not matches.empty:
             matching_row = matches.iloc[0]
-            # Now you can use matching_row['short_label'], etc.
         else:
             # This block runs if the string search found nothing
             print(f"ERROR: No row found for {target_str}")
             # Optional: print the first few reference strings to see why they don't match
-            print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
-
-            #END TESTING
+            #print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
+        
+        match matching_row['spectrum_type']:
+            case "bretschneider":
+                display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}, Hs = {matching_row['significantWaveHeight']}, Tp = {matching_row['peakPeriod']}"
+            case "spotter":
+                display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
+            case _:
+                display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
+        #End of the code section for adding the titles
         # Perform the scatter on the specific subplot axis
         scatter_kwargs = {
             'marker': markers[i % len(markers)],
@@ -634,9 +592,7 @@ def damping_seed_comparison_plot(**kwargs):
             )
 
         # Subplot styling
-        #display_title = spec_data['short_label'].iloc[0]
-        display_title = matching_row['spectrum_id'] #testing
-        ax.set_title(f"Spectrum: {matching_row['spectrum_id']}, {matching_row['spectrum_type']}") # Truncate long names for title
+        ax.set_title(f"Spectrum: {display_title}") # Truncate long names for title
         ax.set_xlabel('Scale Factor')
         ax.set_ylabel(metric)
         ax.grid(True, linestyle='--', alpha=0.6)
