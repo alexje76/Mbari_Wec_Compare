@@ -143,7 +143,9 @@ def construct_bretschneider(spectrum_id, **kwargs):
     'frequency': [spotter_freq_dense.tolist()], 
     'varianceDensity': [bretschneider_szz.tolist()], 
     'spectrum_id': [spectrum_id], 
-    'spectrum_type': 'bretschneider'
+    'spectrum_type': 'bretschneider',
+    'peakPeriod': Tp,
+    'significantWaveHeight': Hs
     })
 
     write_spectrums(temp_df)
@@ -176,7 +178,36 @@ def calculate_all(metric, spectrum_type=None):
         df.loc[(df['spectrum_id'] == row['spectrum_id']) & (df['spectrum_type'] == row['spectrum_type']), metric] = globals()[f'calculate_{metric}'](row['spectrum_id'], row['spectrum_type'])
     overwrite_spectrums(df)
 
+def calculate_sim_incidentspectrumtype(spectrum_type = None):
+    """Generates the Incidentwave height to have easier plotting names elsewhere
+
+    Parameters
+    ----------
+    spectrum_type : _type_, optional
+        If you only want to calculate one s, by default None
+    """    
+    df = read_spectrums()
+    if spectrum_type is not None:
+        df = df[df['spectrum_type'] == spectrum_type]
+    print(df[['spectrum_id', 'spectrum_type', 'significantWaveHeight', 'peakPeriod']])
+    for i, row in df.iterrows():
+        if row['spectrum_type'] == 'spotter':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'bretschneider':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        else:
+            print(f"Unknown spectrum type {row['spectrum_type']} for spectrum ID {row['spectrum_id']}. Skipping incident spectrum type calculation.")
+
+    print (df[['spectrum_id', 'spectrum_type', ' IncWaveSpectrumType;IncWaveSpectrumParams']])
+    overwrite_spectrums(df)
+
     #CSV handling
+
+
+
 def read_spectrums():
     """
     Reads the spectrums csv file 
@@ -247,9 +278,18 @@ def remove_spectrum(spectrum_id, spectrum_type):
     
     updated_df.to_csv(spectrums_csv, index=False)
     print(f"Spectrums data written to {spectrums_csv} with {len(updated_df)} rows and {len(updated_df.columns)} columns, following dropping of spectrum ID {spectrum_id} and type {spectrum_type}.")
-
-def main():
+def recreate_fully():
+    """fully recreates all spectrums"""
+    df = full_spectrums()
+    write_spectrums(df)
+    list = spectrum_list()
+    for i, spectrum_id in enumerate(list):
+        construct_bretschneider(spectrum_id)
     calculate_all('energy')
+    calculate_sim_incidentspectrumtype()
+def main():
+    #calculate_all('energy')
+    calculate_sim_incidentspectrumtype()
 
     #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
 
