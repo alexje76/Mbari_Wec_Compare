@@ -286,7 +286,7 @@ def main():
     # print_custom_spectrum(f,szz)
     ###
     spectrum_nums = spectrums.spectrum_list()
-    visualization.plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy')
+    visualization.plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=True)
     ###
 
 

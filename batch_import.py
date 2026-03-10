@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import glob
+import sys
 
 import mainDF_management as mDF_mgmt 
 
@@ -147,7 +148,7 @@ def add_datalog(file_name):
     
 ##################TESTING##################
 def main():
-    batch_file_name = 'batch_results_20260220105054'
+    batch_file_name = 'batch_results_20260304113810'
 
     import_batch(batch_file_name)
 ##################DONE TESTING##################

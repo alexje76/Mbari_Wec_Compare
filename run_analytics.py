@@ -187,7 +187,7 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
 
 ##################TESTING##################
 def main():
-    analytics(batch_name='batch_results_20260220105054', analytic=avg_tot_power, transient_investigation=False)
+    analytics(batch_name='batch_results_20260304113810', analytic=avg_tot_power, transient_investigation=False)
 
     
 ##################DONE TESTING##################
