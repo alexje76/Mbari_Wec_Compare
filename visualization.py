@@ -407,7 +407,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
     
     # Define available models and their plotting styles
     models = {
-        "spotter": {"label": "Spotter", "color": "blue", "fmt": "scatter", "alpha": 0.7},
+        "spotter": {"label": "Spotter", "color": "blue", "fmt": "scatter", "alpha": 0.7, "marker": "o"},
         "bretschneider": {"label": "Bretschneider", "color": "orange", "fmt": "plot"},
         "jonswap": {"label": "Jonswap", "color": "yellow", "fmt": "plot", "marker": "x"}
     }
@@ -428,29 +428,31 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
             # Dynamic plotting based on selection
             for model_name in selected_types:
                 if model_name not in models: continue
-                
+                  
                 style = models[model_name]
                 f, szz = spectrums.spectrum(i, model_name)
                 metric_sv = spectrums.spectrum_metric_single_value(i, model_name, kwargs.get('metric_sv')) if kwargs.get('metric_sv') else None
                 x = 1/np.array(f) if period else np.array(f)
+                szz = np.array(szz)*(np.array(f)**2) if period else np.array(szz)
                 ## TODO: I do not think this is currently working
-                # if cumsum:
-                #     # Calculate cumulative trapezoidal integral (Energy)
-                #     # Use np.cumsum(szz_sorted * np.diff(f_sorted)) or simple cumsum:
-                #     y_cumsum = integrate.cumulative_trapezoid(szz, x, initial=0 ) / integrate.trapezoid(szz, x) if period else# Normalized %
-                #     # Or use actual energy: y_cumsum = np.cumsum(szz_sorted) * (f_sorted[1]-f_sorted[0])
+                if cumsum:
+                    # Calculate cumulative trapezoidal integral (Energy)
+                    # Use np.cumsum(szz_sorted * np.diff(f_sorted)) or simple cumsum:
+                    y_cumsum = integrate.cumulative_trapezoid(szz, x, initial=0 ) / integrate.trapezoid(szz, x) # Normalized 
+                    # Or use actual energy: 
+                    # y_cumsum = np.cumsum(szz_sorted) * (f_sorted[1]-f_sorted[0])
                     
-                #     # Create secondary axis for cumulative plot
-                #     ax2 = ax.twinx()
-                #     ax2.plot(x, y_cumsum, color=style["color"], linestyle='--', alpha=0.5)
-                #     ax2.set_ylabel('Cumulative Energy (%)') if idx % n_cols == (n_cols - 1) else None
+                    # Create secondary axis for cumulative plot
+                    ax2 = ax.twinx()
+                    ax2.plot(x, y_cumsum, color=style["color"], linestyle='--', alpha=0.5)
+                    ax2.set_ylabel('Cumulative Energy (%)') if idx % n_cols == (n_cols - 1) else None
                 # ##
                 label = style["label"]
                 if metric_sv is not None:
                     label += f" ({kwargs.get('metric_sv')}: {metric_sv:.4f})" # Format to 2 decimal places
 
                 if style.get("fmt") == "scatter":
-                    ax.scatter(x, szz, label=label, color=style["color"], alpha=style.get("alpha", 1))
+                    ax.plot(x, szz, label=label, color=style["color"], alpha=style.get("alpha", 1), marker=style.get("marker"))
                 else:
                     ax.plot(x, szz, label=label, color=style["color"], marker=style.get("marker"))
 
@@ -548,19 +550,23 @@ def damping_seed_comparison_plot(**kwargs):
         #Safely extract the first (and presumably only) match
         if not matches.empty:
             matching_row = matches.iloc[0]
+
+            match matching_row['spectrum_type']:
+                case "bretschneider":
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}, Hs = {matching_row['significantWaveHeight']}, Tp = {matching_row['peakPeriod']}"
+                case "spotter":
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
+                case _:
+                    display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
         else:
             # This block runs if the string search found nothing
             print(f"ERROR: No row found for {target_str}")
+            display_title = target_str
+            print(f'disp tit {display_title}')
             # Optional: print the first few reference strings to see why they don't match
             #print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
         
-        match matching_row['spectrum_type']:
-            case "bretschneider":
-                display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}, Hs = {matching_row['significantWaveHeight']}, Tp = {matching_row['peakPeriod']}"
-            case "spotter":
-                display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
-            case _:
-                display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
+
         #End of the code section for adding the titles
         # Perform the scatter on the specific subplot axis
         scatter_kwargs = {
@@ -667,12 +673,16 @@ def main():
     
     #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
     #damping_seed_comparison_plot(batch_name='batch_results_20260220105054', metric='avg_tot_power', cols=2, damping_values_avg=True)
-    damping_seed_comparison_plot(batch_name='batch_results_20260304113810', batch_name3='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
+    ##damping_seed_comparison_plot(batch_name='batch_results_20260304113810', batch_name3='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
     #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=1, damping_values_avg=True)
     #plot_data_runs(pblog_name='results_run_1_20260220111851/pblog', x=' Timestamp (epoch seconds)',  y=' SC Range Finder (in)') #For repeat period
     spectrum_nums = spectrums.spectrum_list()
     #plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=True)
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=3, metric_sv='energy', cumsum=True)
+    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=3, metric_sv='energy', cumsum=False)
+
+    #Morteza Pres
+    #plot_overlayed_spectrums(np.array([532, 114]), plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=False)
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, seed_coloration=True)
     plt.tight_layout()
     plt.show()
 ##################DONE TESTING##################

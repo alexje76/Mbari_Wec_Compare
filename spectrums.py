@@ -12,6 +12,7 @@ import glob
 import json
 import ast
 import sys
+import scipy
 
 
 def full_spectrums():
@@ -53,8 +54,6 @@ def full_spectrums():
         
     combined_df = pd.concat(df_list, ignore_index=True)
     return combined_df
-
-
 def spectrum_list():
     """
     Simple function to gather all the custom spectrums
@@ -63,7 +62,6 @@ def spectrum_list():
     mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
     spectrum_list = mbari_2022
     return spectrum_list
-
 def spectrum(spectrum_id, spectrum_type):
     """
     returns the f and szz for a spectrum
@@ -109,7 +107,7 @@ def spectrum_metric_single_value(spectrum_id, spectrum_type, metric):
         metric_value = spectrum_df[metric].iloc[0]
         return metric_value
 
-def construct_bretschneider(spectrum_id, **kwargs):
+def construct_bretschneider(spectrum_id, test = False, **kwargs):
     """_summary_
 
     Parameters
@@ -122,8 +120,8 @@ def construct_bretschneider(spectrum_id, **kwargs):
     spectrum_df = read_spectrums()
     if 'new_spectrum' in kwargs and kwargs.get('new_spectrum', True):
         if kwargs.get('Hs') is not None and kwargs.get('Tp') is not None:
-            Hs = kwargs['Hs']
-            Tp = kwargs['Tp']
+            Hs = kwargs['Hs'].astype(float)
+            Tp = kwargs['Tp'].astype(float)
         else:
             raise ValueError("Must provide Hs and Tp to construct a new Bretschneider spectrum.")
     else: #This is when I do not have a new spectrum and construct off of the 
@@ -139,16 +137,77 @@ def construct_bretschneider(spectrum_id, **kwargs):
 
     bretschneider_szz = (5/16) * (Hs**2) * ((peak_freq**4) / (spotter_freq_dense**5)) * np.exp(-1.25 * (peak_freq/spotter_freq_dense)**4)
 
-    temp_df = pd.DataFrame({
-    'frequency': [spotter_freq_dense.tolist()], 
-    'varianceDensity': [bretschneider_szz.tolist()], 
-    'spectrum_id': [spectrum_id], 
-    'spectrum_type': 'bretschneider',
-    'peakPeriod': Tp,
-    'significantWaveHeight': Hs
-    })
+    if 'spec_type' in kwargs and kwargs.get('spec_type', True):
+        temp_df = pd.DataFrame({
+        'frequency': [spotter_freq_dense.tolist()], 
+        'varianceDensity': [bretschneider_szz.tolist()], 
+        'spectrum_id': [spectrum_id], 
+        'spectrum_type': 'bretschneider',
+        'peakPeriod': Tp,
+        'significantWaveHeight': Hs
+        })
 
-    write_spectrums(temp_df)
+
+    if not test: 
+        write_spectrums(temp_df)
+    if test: #TODO - fix this
+        plt.plot(spotter_freq_dense, bretschneider_szz)
+        plt.show()
+        spotter_freq_dense.round(5)
+        spot = np.array2string(spotter_freq_dense,  separator=', ', suppress_small=True)
+        bretschneider_szz.round(5)
+        bret = np.array2string(bretschneider_szz,  separator=', ', suppress_small=True)
+        #print(f"-Custom:")
+        #print(f"     f: {spot}")
+        #print(f"     Szz = {bret}")
+
+def construct_bretschneider_min(spectrum_id, **kwargs):
+    """Constructing 
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    **kwargs
+        new_spectrum
+    """     #TODO - fix this
+    spectrum_id = spectrum_id
+    spectrum_df = read_spectrums()
+    f, szz = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['frequency', 'varianceDensity']]
+    clean_szz = szz.strip('[]')
+    szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+
+    clean_f = f.strip('[]')
+    f_np = np.fromstring(clean_f, dtype=float, sep=',')
+    
+    #print(szz_np)
+    # 1. Find peaks (returns tuple: indices, properties)
+    peak_indices, _ = scipy.signal.find_peaks(szz_np)
+
+    # 2. Check if we found at least one peak
+    if len(peak_indices) > 0:
+        # If there are 2 or more peaks, take the second one [1]
+        # Otherwise, take the first one [0]
+        if len(peak_indices) >= 2:
+            peak_idx = peak_indices[1]
+        else:
+            peak_idx = peak_indices[0]
+        
+        # Get the actual value from the array at that index
+        peak_val = szz_np[peak_idx]
+    else:
+        peak_val = None
+        print("No peaks found.")
+    #print(peak_val)
+
+    idx = np.where(szz_np == peak_val)
+    f_peak = f_np[idx]
+    Tp = 1/f_peak
+    Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
+    #print(f"Tp = {Tp}")
+    #print(f"Hs = {Hs}")
+    construct_bretschneider(spectrum_id, test = True, new_spectrum=True, Hs = Hs, Tp = Tp)
+
 def calculate_energy(spectrum_id, spectrum_type):
     """
     Calculates the energy of a spectrum by integrating the spectral density over frequency.
@@ -289,7 +348,10 @@ def recreate_fully():
     calculate_sim_incidentspectrumtype()
 def main():
     #calculate_all('energy')
-    calculate_sim_incidentspectrumtype()
+    #calculate_sim_incidentspectrumtype()
+    spec_list = spectrum_list()
+    for spec in spec_list:
+        construct_bretschneider_min(spec)
 
     #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
 
