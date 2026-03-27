@@ -107,15 +107,19 @@ def spectrum_metric_single_value(spectrum_id, spectrum_type, metric):
         metric_value = spectrum_df[metric].iloc[0]
         return metric_value
 
-def construct_bretschneider(spectrum_id, test = False, **kwargs):
+def construct_bretschneider(spectrum_id, test = False, spec_name = 'bretschneider', **kwargs):
     """_summary_
 
     Parameters
     ----------
     spectrum_id : string or int
         The ID of the spectrum to construct the Bretschneider spectrum for.
+    test : If you want the spectrum plotted out to compare first
+    spec_name : name you want, defaults to bretschneider
     **kwargs
-        new_spectrum
+        new_spectrum: Knows to then expect Hs and Tp as arguments
+            Hs, Tp - The given hs and Tp to use.
+        spec_name
     """    
     spectrum_df = read_spectrums()
     if 'new_spectrum' in kwargs and kwargs.get('new_spectrum', True):
@@ -137,17 +141,18 @@ def construct_bretschneider(spectrum_id, test = False, **kwargs):
 
     bretschneider_szz = (5/16) * (Hs**2) * ((peak_freq**4) / (spotter_freq_dense**5)) * np.exp(-1.25 * (peak_freq/spotter_freq_dense)**4)
 
-    if 'spec_type' in kwargs and kwargs.get('spec_type', True):
-        temp_df = pd.DataFrame({
-        'frequency': [spotter_freq_dense.tolist()], 
-        'varianceDensity': [bretschneider_szz.tolist()], 
-        'spectrum_id': [spectrum_id], 
-        'spectrum_type': 'bretschneider',
-        'peakPeriod': Tp,
-        'significantWaveHeight': Hs
-        })
 
+    temp_df = pd.DataFrame({
+    'frequency': [spotter_freq_dense.tolist()], 
+    'varianceDensity': [bretschneider_szz.tolist()], 
+    'spectrum_id': [spectrum_id], 
+    'spectrum_type': spec_name,
+    'peakPeriod': Tp,
+    'significantWaveHeight': Hs
+    })
+    print(f"test debug - print temp df {temp_df}")
 
+    print(test)
     if not test: 
         write_spectrums(temp_df)
     if test: #TODO - fix this
@@ -206,7 +211,7 @@ def construct_bretschneider_min(spectrum_id, **kwargs):
     Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
     #print(f"Tp = {Tp}")
     #print(f"Hs = {Hs}")
-    construct_bretschneider(spectrum_id, test = True, new_spectrum=True, Hs = Hs, Tp = Tp)
+    construct_bretschneider(spectrum_id, test = False, spec_name='BretHFP', new_spectrum=True, Hs = Hs, Tp = Tp)
 
 def calculate_energy(spectrum_id, spectrum_type):
     """
@@ -247,7 +252,13 @@ def calculate_sim_incidentspectrumtype(spectrum_type = None):
     """    
     df = read_spectrums()
     if spectrum_type is not None:
-        df = df[df['spectrum_type'] == spectrum_type]
+        usr_input = input("Type; 'Y or y' to continue, will wipe all other spectrum types from csv ")
+        if usr_input.lower() == 'y':
+            df = df[df['spectrum_type'] == spectrum_type]
+        else:
+            print('Discarding adding Incident Strings')
+        return
+        
     print(df[['spectrum_id', 'spectrum_type', 'significantWaveHeight', 'peakPeriod']])
     for i, row in df.iterrows():
         if row['spectrum_type'] == 'spotter':
@@ -255,6 +266,9 @@ def calculate_sim_incidentspectrumtype(spectrum_type = None):
             szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
             df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
         elif row['spectrum_type'] == 'bretschneider':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'BretHFP':
             print(df.at[i, 'significantWaveHeight'])
             df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
         else:
@@ -352,8 +366,7 @@ def main():
     spec_list = spectrum_list()
     for spec in spec_list:
         construct_bretschneider_min(spec)
-
     #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
-
+    calculate_sim_incidentspectrumtype()
 if __name__ == '__main__':
     main()

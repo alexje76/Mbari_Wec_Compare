@@ -533,6 +533,7 @@ def damping_seed_comparison_plot(**kwargs):
         # Extract and round the comparison values for the whole reference DataFrame
         # We split the string column, extract the values, and expand them into new temporary columns
         ref_parts = full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().str.split(';')
+        #print(f"ref parts{ref_parts}")
 
         def extract_rounded(row_parts):
             # Extracts 1 'f' and 3 'Szz' values, returning a flat list
@@ -542,6 +543,7 @@ def damping_seed_comparison_plot(**kwargs):
 
         # Apply extraction to the whole column
         extracted_data = ref_parts.apply(extract_rounded)
+        #print(f"extracted data{extracted_data}")
 
         # Filter the DataFrame
         #Compare the entire extracted list to our target list [f, szz1, szz2, szz3]
@@ -553,7 +555,9 @@ def damping_seed_comparison_plot(**kwargs):
 
             match matching_row['spectrum_type']:
                 case "bretschneider":
-                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}, Hs = {matching_row['significantWaveHeight']}, Tp = {matching_row['peakPeriod']}"
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:4]}, Hs = {matching_row['significantWaveHeight']}, Tp = {matching_row['peakPeriod']}"
+                case "BretHFP":
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "spotter":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
                 case _:
