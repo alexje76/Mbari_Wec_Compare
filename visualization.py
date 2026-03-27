@@ -469,7 +469,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
 
         plt.tight_layout()
         plt.show()
-def damping_seed_comparison_plot(**kwargs):
+def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividual', **kwargs):
     """
     Plot a comparison of damping seed values and power metrics, to investigate the impact of damping seed on simulation outcomes.
     Designed to plot a variety of different seeds for each of a set of different wave spectra
@@ -508,21 +508,9 @@ def damping_seed_comparison_plot(**kwargs):
             function_data = pd.concat(frames_to_concat, ignore_index=True)
 
     spectrum = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
-    # Begin Subplotting
-    n_specs = len(spectrum)
-    cols = kwargs.get('cols', 2) #default to 2 columns if not specified
-    rows = math.ceil(n_specs / cols)
-
-    # Create Figure with axes and grid of subplots
-    fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 4), constrained_layout=True)
-    axes_flat = axes.flatten() # Flatten to 1D for easy iteration
-
-    markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']
-    sc = {}
-
     full_names_spectrums_here = spectrums.read_spectrums()
-    for i, spec in enumerate(spectrum):
-        ax = axes_flat[i]
+
+    for i, spec in enumerate(spectrum): #Adding the titles for the plots
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
 
         #Adding the code to create the titles for the plots
@@ -555,7 +543,7 @@ def damping_seed_comparison_plot(**kwargs):
 
             match matching_row['spectrum_type']:
                 case "bretschneider":
-                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:4]}, Hs = {matching_row['significantWaveHeight']}, Tp = {matching_row['peakPeriod']}"
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:4]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "BretHFP":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "spotter":
@@ -569,47 +557,159 @@ def damping_seed_comparison_plot(**kwargs):
             print(f'disp tit {display_title}')
             # Optional: print the first few reference strings to see why they don't match
             #print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
-        
-
+        #print(f"print disp title{display_title}")
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'display_title'] = str(display_title)
+        #print(f"printing func_data.loc test{function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]['display_title'].iloc[0]}")
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_id'] = matching_row['spectrum_id']
         #End of the code section for adding the titles
-        # Perform the scatter on the specific subplot axis
-        scatter_kwargs = {
-            'marker': markers[i % len(markers)],
-            'label': spec
-        }
+
+    # Create a mapping of the unique spectrum values to their display titles
+    title_map = function_data.set_index(' IncWaveSpectrumType;IncWaveSpectrumParams')['display_title'].to_dict()
+    # Re-order the spectrum list based on the values in the title_map
+    spectrum = sorted(spectrum, key=lambda x: title_map[x])
+
+    if plot_type == 'spectrumindividual':
+        # Begin Subplotting
+        n_specs = len(spectrum)
+        cols = kwargs.get('cols', 2) #default to 2 columns if not specified
+        rows = math.ceil(n_specs / cols)
+
+        # Create Figure with axes and grid of subplots
+        fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 4), constrained_layout=True)
+        axes_flat = axes.flatten() # Flatten to 1D for easy iteration
+        if col_org:
+            axes_flat = axes.flatten('F')
+
+        markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']
+        sc = {}
         
-        if not ('seed_coloration' in kwargs and kwargs['seed_coloration'] is False):
-            scatter_kwargs['c'] = spec_data[' Seed']
-            scatter_kwargs['cmap'] = 'tab20'
+        for i, spec in enumerate(spectrum):
+            ax = axes_flat[i]
+            spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
+
+            # Perform the scatter on the specific subplot axis
+            scatter_kwargs = {
+                'marker': markers[i % len(markers)],
+                'label': spec
+            }
+            
+            if not ('seed_coloration' in kwargs and kwargs['seed_coloration'] is False):
+                scatter_kwargs['c'] = spec_data[' Seed']
+                scatter_kwargs['cmap'] = 'tab20'
+            
+            sc[i] = ax.scatter(
+                spec_data[' ScaleFactor'], 
+                spec_data[metric], 
+                **scatter_kwargs
+            )
+            
+            if 'damping_values_avg' in kwargs and kwargs['damping_values_avg'] is True:
+                #Find and then plot the average for each damping scale as a red x
+                avg_data = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
+                ax.plot(
+                    avg_data[' ScaleFactor'], 
+                    avg_data[metric], 
+                    color='red', 
+                    marker='x', 
+                    linestyle='-', 
+                    linewidth=1.5,
+                    label='Average'
+                )
+
+            # Subplot styling
+            ax.set_title(f"Spec:{spec_data['display_title'].iloc[0]}") # Truncate long names for title #TODO: figure out why I need an iloc[0] here
+            ax.set_xlabel('Scale Factor')
+            ax.set_ylabel(metric)
+            ax.grid(True, linestyle='--', alpha=0.6)
+
+        # Hide any unused subplot axes
+        for j in range(i + 1, len(axes_flat)):
+            axes_flat[j].axis('off')
+
+    elif plot_type == 'avg_on_one': #TODO: clean up a bit
+        fig, ax = plt.subplots(figsize=(10, 6))
         
-        sc[i] = ax.scatter(
-            spec_data[' ScaleFactor'], 
-            spec_data[metric], 
-            **scatter_kwargs
-        )
+        # Determine grouping based on optional argument
+        color_by_spec = kwargs.get('color_by_spec', True)
         
-        if 'damping_values_avg' in kwargs and kwargs['damping_values_avg'] is True:
-            #Find and then plot the average for each damping scale as a red x
+        # Setup colors: either per-spectrum or per-spec group
+        color_map = plt.get_cmap('tab10')
+        spec_colors = {}
+        color_idx = 0
+
+        for i, spec in enumerate(spectrum):
+            spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
+            display_name = str(spec_data['display_title'].iloc[0])
+            
+            # Calculate the spec/group key
+            spec = display_name[:5] if color_by_spec else spec
+            
+            # Assign a consistent color to this group
+            if spec not in spec_colors:
+                spec_colors[spec] = color_map(color_idx % 10)
+                color_idx += 1
+            
+            # Calculate averages
             avg_data = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
+            
+            # Plot #sometimes use semilogy for easier readability
             ax.plot(
                 avg_data[' ScaleFactor'], 
                 avg_data[metric], 
-                color='red', 
-                marker='x', 
-                linestyle='-', 
-                linewidth=1.5,
-                label='Average'
+                label=display_name,
+                color=spec_colors[spec],
+                marker='o',
+                linestyle='-',
+                alpha=0.8
             )
 
-        # Subplot styling
-        ax.set_title(f"Spectrum: {display_title}") # Truncate long names for title
+        ax.set_title(f'Averages for {metric}')
         ax.set_xlabel('Scale Factor')
         ax.set_ylabel(metric)
-        ax.grid(True, linestyle='--', alpha=0.6)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='small')
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+    elif plot_type == 'avg_by_spec':
+        # Group spectrum strings by their first 5 characters
+        from collections import defaultdict
+        groups = defaultdict(list)
+        for spec in spectrum:
+            # We fetch the display name once to get the prefix key
+            sample_name = str(function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]['display_title'].iloc[0])
+            groups[sample_name[:5]].append(spec)
+        
+        n_groups = len(groups)
+        cols = kwargs.get('cols', 2)
+        rows = math.ceil(n_groups / cols)
+        
+        fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 4), constrained_layout=True)
+        axes_flat = axes.flatten() if n_groups > 1 else [axes]
+        
+        for i, (prefix, spec_list) in enumerate(groups.items()):
+            ax = axes_flat[i]
+            for spec in spec_list:
+                spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
+                avg_data = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
+                
+                ax.plot(
+                    avg_data[' ScaleFactor'], 
+                    avg_data[metric], 
+                    label=spec_data['display_title'].iloc[0],
+                    marker='o',
+                    linestyle='-'
+                )
+            
+            ax.set_title(f"Spec: {prefix}")
+            ax.set_xlabel('Scale Factor')
+            ax.set_ylabel(metric)
+            ax.legend(fontsize='x-small')
+            ax.grid(True, alpha=0.3)
 
-    # Hide any unused subplot axes
-    for j in range(i + 1, len(axes_flat)):
-        axes_flat[j].axis('off')
+        # Cleanup unused axes
+        for j in range(i + 1, len(axes_flat)):
+            axes_flat[j].axis('off')
+    else:
+        print(f"define plot_type")
 
 def y_data_to_float(y_data): ##TODO
     """
@@ -682,11 +782,13 @@ def main():
     #plot_data_runs(pblog_name='results_run_1_20260220111851/pblog', x=' Timestamp (epoch seconds)',  y=' SC Range Finder (in)') #For repeat period
     spectrum_nums = spectrums.spectrum_list()
     #plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=True)
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=3, metric_sv='energy', cumsum=False)
+    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
 
     #Morteza Pres
     #plot_overlayed_spectrums(np.array([532, 114]), plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=False)
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, seed_coloration=True)
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, seed_coloration=True, col_org = True)
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    plt.tight_layout()
     plt.tight_layout()
     plt.show()
 ##################DONE TESTING##################
