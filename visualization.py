@@ -520,7 +520,7 @@ def damping_seed_comparison_plot(**kwargs):
     markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']
     sc = {}
 
-    full_names_spectrums_here = spectrums.read_spectrums()#testing
+    full_names_spectrums_here = spectrums.read_spectrums()
     for i, spec in enumerate(spectrum):
         ax = axes_flat[i]
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
