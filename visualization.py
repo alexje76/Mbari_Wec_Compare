@@ -268,6 +268,26 @@ def hack_heatmap_plot(**kwargs):
     plt.xlabel('Period (s)')
     plt.ylabel('Amplitude (m)')
     plt.grid()
+
+    if 'REO' in kwargs and kwargs['REO'] is not None: #Code to output the REO, for damping 1, using the amplitude as the number given
+        # Filter for damping factor 1.0
+        d_one = heatmap_data[heatmap_data[' ScaleFactor'] == 1.0]
+        
+        # If a specific amplitude (float/int) was passed, filter by it
+        target_amp = kwargs['REO']
+        if isinstance(target_amp, (int, float)):
+            d_one = d_one[d_one['A'] == target_amp]
+            print(f"\n--- Efficiency for Amplitude {target_amp} (Damping = 1) ---")
+        else:
+            print("\n--- Efficiency for All Amplitudes (Damping = 1) ---")
+
+        # Sort by Period (T) and display
+        output = d_one[['T', 'avg_pwr_eff']].sort_values(['T'])
+        output['T'] = 1 / output['T']
+        output.rename(columns={'T': 'F'}, inplace=True)
+        print(output.to_string(index=False))
+        return output #TODO: have this better suited for the optional return
+
 def error_code_analysis_plot(**kwargs):
 
     """
@@ -403,12 +423,14 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
         None (displays the plots)
     """
     period = kwargs.get('period', False)
+    reo_df = kwargs.get('reo_df')
     total_plots = len(spectrum_nums)
     
     # Define available models and their plotting styles
     models = {
-        "spotter": {"label": "Spotter", "color": "blue", "fmt": "scatter", "alpha": 0.7, "marker": "o"},
-        "bretschneider": {"label": "Bretschneider", "color": "orange", "fmt": "plot"},
+        "spotter": {"label": "Spotter", "color": "tab:green", "fmt": "scatter", "alpha": 0.7, "marker": "o"},
+        "bretschneider": {"label": "Bretschneider", "color": "tab:orange", "fmt": "plot"},
+        "BretHFP": {"label": "BretHFP", "color": "tab:blue", "fmt": "plot"},
         "jonswap": {"label": "Jonswap", "color": "yellow", "fmt": "plot", "marker": "x"}
     }
     
@@ -424,6 +446,13 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
         for idx, i in enumerate(batch):
             ax = axes[idx]
             xlabel = 'Period (s)' if period else 'Frequency (Hz)'
+
+
+            if reo_df is not None:
+                # Assuming 'f' is frequency and the other column is amplitude
+                amp_col = [c for c in reo_df.columns if c != 'F'][0]
+                x_reo = 1/reo_df['F'] if period else reo_df['F']
+                ax.plot(x_reo, reo_df[amp_col]*5, label="RAO", color="black", linestyle="-", linewidth=1.0)
 
             # Dynamic plotting based on selection
             for model_name in selected_types:
@@ -452,7 +481,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
                     label += f" ({kwargs.get('metric_sv')}: {metric_sv:.4f})" # Format to 2 decimal places
 
                 if style.get("fmt") == "scatter":
-                    ax.plot(x, szz, label=label, color=style["color"], alpha=style.get("alpha", 1), marker=style.get("marker"))
+                    ax.plot(x, szz, label=label, color=style["color"], alpha=style.get("alpha", 1), marker=style.get("marker"), ms = 1.5)
                 else:
                     ax.plot(x, szz, label=label, color=style["color"], marker=style.get("marker"))
 
@@ -468,7 +497,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
             fig.delaxes(axes[j])
 
         plt.tight_layout()
-        plt.show()
+        #plt.show()
 def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividual', **kwargs):
     """
     Plot a comparison of damping seed values and power metrics, to investigate the impact of damping seed on simulation outcomes.
@@ -653,7 +682,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             avg_data = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
             
             # Plot #sometimes use semilogy for easier readability
-            ax.plot(
+            ax.semilogy(
                 avg_data[' ScaleFactor'], 
                 avg_data[metric], 
                 label=display_name,
@@ -773,7 +802,7 @@ def main():
     #error_code_analysis_plot(batch_name='batch_results_20251217001004', batch_name2='batch_results_20251208124051', batch_name3='batch_results_20260110154141', batch_name4='batch_results_20251218153359') #batch_results_20251208191310
     #error_code_analysis_plot(batch_name='batch_results_20260110154141', breaking_line=False, physics_step_compare=True) 
     ##error_code_analysis_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', breaking_line=True, damping_altered=True, physics_step_only=0.01) #batch_results_20260114105529 is for the two different physics steps
-    #hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=True, damping_values=True)
+    #hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
     
     #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', metric='avg_tot_power', cols=2, damping_values_avg=True)
     #damping_seed_comparison_plot(batch_name='batch_results_20260220105054', metric='avg_tot_power', cols=2, damping_values_avg=True)
@@ -782,11 +811,15 @@ def main():
     #plot_data_runs(pblog_name='results_run_1_20260220111851/pblog', x=' Timestamp (epoch seconds)',  y=' SC Range Finder (in)') #For repeat period
     spectrum_nums = spectrums.spectrum_list()
     #plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=True)
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
+    #plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
+
+    out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
+    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False, reo_df = out)
 
     #Morteza Pres
     #plot_overlayed_spectrums(np.array([532, 114]), plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=False)
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, seed_coloration=True, col_org = True)
+    #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, seed_coloration=True, col_org = True)
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_on_one')
     damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
     plt.tight_layout()
     plt.tight_layout()

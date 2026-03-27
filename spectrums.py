@@ -361,12 +361,12 @@ def recreate_fully():
     calculate_all('energy')
     calculate_sim_incidentspectrumtype()
 def main():
-    #calculate_all('energy')
+    calculate_all('energy')
     #calculate_sim_incidentspectrumtype()
-    spec_list = spectrum_list()
-    for spec in spec_list:
-        construct_bretschneider_min(spec)
-    #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
-    calculate_sim_incidentspectrumtype()
+    # spec_list = spectrum_list()
+    # for spec in spec_list:
+    #     construct_bretschneider_min(spec)
+    # #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
+    # calculate_sim_incidentspectrumtype()
 if __name__ == '__main__':
     main()
