@@ -418,6 +418,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
             n_cols: number of columns in the subplot grid (default 2)
             metric_sv: a metric you want also represented - single value.
             cumsum: bool, whether or not to plot the cumulative sum of the spectrum
+            #TODO: change/add in the 
     ------
     Returns:
         None (displays the plots)
@@ -428,10 +429,12 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
     
     # Define available models and their plotting styles
     models = {
-        "spotter": {"label": "Spotter", "color": "tab:green", "fmt": "scatter", "alpha": 0.7, "marker": "o"},
-        "bretschneider": {"label": "Bretschneider", "color": "tab:orange", "fmt": "plot"},
-        "BretHFP": {"label": "BretHFP", "color": "tab:blue", "fmt": "plot"},
-        "jonswap": {"label": "Jonswap", "color": "yellow", "fmt": "plot", "marker": "x"}
+        "spotter": {"label": "Spotter", "color": spectrums.get_color_for_spectrum_type("spotter"), "fmt": "scatter", "alpha": 0.7, "marker": "o"},
+        "bretschneider": {"label": "Bretschneider", "color": spectrums.get_color_for_spectrum_type("bretschneider"), "fmt": "plot"},
+        "BretHFP": {"label": "BretHFP", "color": spectrums.get_color_for_spectrum_type("BretHFP"), "fmt": "plot"},
+        "jonswap": {"label": "Jonswap", "color": spectrums.get_color_for_spectrum_type("jonswap"), "fmt": "plot", "marker": "x"},
+        "regular": {"label": "Regular", "color": spectrums.get_color_for_spectrum_type("regular"), "fmt": "vline", "alpha": 0.65},
+        "regularHFP": {"label": "RegularHFP", "color": spectrums.get_color_for_spectrum_type("regularHFP"), "fmt": "vline", "alpha": 0.65}
     }
     
     # If types is None or 'all', use all keys in the models dict
@@ -464,17 +467,17 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
                 x = 1/np.array(f) if period else np.array(f)
                 szz = np.array(szz)*(np.array(f)**2) if period else np.array(szz)
                 ## TODO: I do not think this is currently working
-                if cumsum:
-                    # Calculate cumulative trapezoidal integral (Energy)
-                    # Use np.cumsum(szz_sorted * np.diff(f_sorted)) or simple cumsum:
-                    y_cumsum = integrate.cumulative_trapezoid(szz, x, initial=0 ) / integrate.trapezoid(szz, x) # Normalized 
-                    # Or use actual energy: 
-                    # y_cumsum = np.cumsum(szz_sorted) * (f_sorted[1]-f_sorted[0])
+                # if cumsum:
+                #     # Calculate cumulative trapezoidal integral (Energy)
+                #     # Use np.cumsum(szz_sorted * np.diff(f_sorted)) or simple cumsum:
+                #     y_cumsum = integrate.cumulative_trapezoid(szz, x, initial=0 ) / integrate.trapezoid(szz, x) # Normalized 
+                #     # Or use actual energy: 
+                #     # y_cumsum = np.cumsum(szz_sorted) * (f_sorted[1]-f_sorted[0])
                     
-                    # Create secondary axis for cumulative plot
-                    ax2 = ax.twinx()
-                    ax2.plot(x, y_cumsum, color=style["color"], linestyle='--', alpha=0.5)
-                    ax2.set_ylabel('Cumulative Energy (%)') if idx % n_cols == (n_cols - 1) else None
+                #     # Create secondary axis for cumulative plot
+                #     ax2 = ax.twinx()
+                #     ax2.plot(x, y_cumsum, color=style["color"], linestyle='--', alpha=0.5)
+                #     ax2.set_ylabel('Cumulative Energy (%)') if idx % n_cols == (n_cols - 1) else None
                 # ##
                 label = style["label"]
                 if metric_sv is not None:
@@ -482,6 +485,8 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
 
                 if style.get("fmt") == "scatter":
                     ax.plot(x, szz, label=label, color=style["color"], alpha=style.get("alpha", 1), marker=style.get("marker"), ms = 1.5)
+                elif style.get("fmt") == "vline":
+                    ax.axvline(x, color=style["color"], alpha=style.get("alpha", 1), label=label)
                 else:
                     ax.plot(x, szz, label=label, color=style["color"], marker=style.get("marker"))
 
@@ -516,7 +521,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
     if 'batch_name' in kwargs and 'run_number' not in kwargs:
         # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
-        batch_keys = ['batch_name'] + [f'batch_name{i}' for i in range(2, 5)]
+        batch_keys = ['batch_name'] + [f'batch_name{i}' for i in range(2, 7)] #TODO: make this dynamic for more batch names
     
         # List to collect individual DataFrames before final concatenation
         frames_to_concat = []
@@ -577,6 +582,10 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "spotter":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
+                case "regular":
+                    display_title = f"{matching_row['spectrum_id']}, Mono, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, T = {matching_row['peakPeriod'].astype(str)[:4]}"
+                case "regularHFP":
+                    display_title = f"{matching_row['spectrum_id']}, MonoHFP, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, T = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case _:
                     display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
         else:
@@ -591,6 +600,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         #print(f"printing func_data.loc test{function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]['display_title'].iloc[0]}")
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_id'] = matching_row['spectrum_id']
         #End of the code section for adding the titles
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'color'] = spectrums.get_color_for_spectrum_type(matching_row['spectrum_type'])
 
     # Create a mapping of the unique spectrum values to their display titles
     title_map = function_data.set_index(' IncWaveSpectrumType;IncWaveSpectrumParams')['display_title'].to_dict()
@@ -655,7 +665,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         for j in range(i + 1, len(axes_flat)):
             axes_flat[j].axis('off')
 
-    elif plot_type == 'avg_on_one': #TODO: clean up a bit
+    elif plot_type == 'avg_on_one': #TODO:Make the color per root spectrum the same with each derived spectrum having a separate marker:: #For all spectrums (root and derived), plots the average of the seeds for each damping value.
         fig, ax = plt.subplots(figsize=(10, 6))
         
         # Determine grouping based on optional argument
@@ -698,7 +708,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='small')
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
-    elif plot_type == 'avg_by_spec':
+    elif plot_type == 'avg_by_spec': #For each root spectrum, plot the average of the seeds for each damping value, each derived spectrum has it's own color
         # Group spectrum strings by their first 5 characters
         from collections import defaultdict
         groups = defaultdict(list)
@@ -725,7 +735,8 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     avg_data[metric], 
                     label=spec_data['display_title'].iloc[0],
                     marker='o',
-                    linestyle='-'
+                    linestyle='-',
+                    color=spec_data['color'].iloc[0]
                 )
             
             ax.set_title(f"Spec: {prefix}")
@@ -813,14 +824,15 @@ def main():
     #plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=True, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=True)
     #plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
 
-    out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False, reo_df = out)
+    #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
+    #plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular'], n_cols=3, metric_sv='energy', cumsum=False, reo_df = out)
+    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular', 'regularHFP'], n_cols=3, metric_sv='energy', cumsum=False)
 
     #Morteza Pres
     #plot_overlayed_spectrums(np.array([532, 114]), plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=False)
     #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, seed_coloration=True, col_org = True)
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_on_one')
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    #damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_on_one')
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
     plt.tight_layout()
     plt.tight_layout()
     plt.show()

@@ -152,7 +152,6 @@ def construct_bretschneider(spectrum_id, test = False, spec_name = 'bretschneide
     })
     print(f"test debug - print temp df {temp_df}")
 
-    print(test)
     if not test: 
         write_spectrums(temp_df)
     if test: #TODO - fix this
@@ -212,6 +211,74 @@ def construct_bretschneider_min(spectrum_id, **kwargs):
     #print(f"Tp = {Tp}")
     #print(f"Hs = {Hs}")
     construct_bretschneider(spectrum_id, test = False, spec_name='BretHFP', new_spectrum=True, Hs = Hs, Tp = Tp)
+def construct_regular(spectrum_id, test = False, spec_name = 'regular', **kwargs):
+    """_summary_
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    test : If you want the spectrum plotted out to compare first
+    spec_name : name you want, defaults to bretschneider
+    **kwargs
+        new_spectrum: Knows to then expect Hs and Tp as arguments
+            Hs, Tp - The given hs and Tp to use.
+    """
+    spectrum_df = read_spectrums()
+    print(f"new spec? : {kwargs.get('new_spectrum')}")
+    if 'new_spectrum' in kwargs and kwargs.get('new_spectrum', True):
+        if kwargs.get('Hs') is not None and kwargs.get('Tp') is not None:
+            Hs = pd.to_numeric(kwargs['Hs'])
+            Tp = pd.to_numeric(kwargs['Tp'])
+            print(f"using given hs and tp") #debugging
+        else:
+            raise ValueError("Must provide Hs and Tp to construct a new Regular spectrum.")
+    else: #This is when I do not have a new spectrum and construct off of the 
+        Hs, Tp = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['significantWaveHeight', 'peakPeriod']]
+    print(f"Constructing Regular spectrum for Hs={Hs} and Tp={Tp}")
+
+    peak_freq = np.array([1/Tp])
+    szz = np.array([(Hs/2)**2/2]) #this should not be used, but is "correct"
+
+    temp_df = pd.DataFrame({
+    'frequency': [peak_freq.tolist()], 
+    'varianceDensity': [szz.tolist()], 
+    'spectrum_id': [spectrum_id], 
+    'spectrum_type': spec_name,
+    'peakPeriod': Tp,
+    'significantWaveHeight': Hs
+    })
+    print(f"test debug - print temp df {temp_df}")
+
+    if not test: 
+        write_spectrums(temp_df)
+    if test: #TODO - fix this
+        print(f"This was a test for regular spectrum: Hs = {Hs}, Tp = {Tp}")
+
+def construct_reg_HFP(spectrum_id, **kwargs):
+    """Constructing a regular spectrum with the same Hs and Tp as the given spectrum ID from the BretHFP
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the regular spectrum for.
+    **kwargs
+        new_spectrum
+    """    
+    df = read_spectrums()
+    exists = False
+    print(f"\n \n Starting construct regular with spectrum id {spectrum_id} and looking for matching BretHFP spectrum to get Hs and Tp ")
+    for i, row in df.iterrows():
+        if row['spectrum_id'] == spectrum_id and row['spectrum_type'] == 'BretHFP':
+            Hs = row['significantWaveHeight']
+            Tp = row['peakPeriod']
+            exists = True
+            print(f"Found matching BretHFP spectrum for ID {spectrum_id} with Hs={Hs} and Tp={Tp}. Constructing regular spectrum.")
+            construct_regular(spectrum_id, test = False, spec_name = 'regularHFP', new_spectrum=True, Hs = Hs, Tp = Tp)
+    if not exists:
+        raise ValueError("Spectrum not found of type 'BretHFP'")
+
+
 
 def calculate_energy(spectrum_id, spectrum_type):
     """
@@ -271,6 +338,12 @@ def calculate_sim_incidentspectrumtype(spectrum_type = None):
         elif row['spectrum_type'] == 'BretHFP':
             print(df.at[i, 'significantWaveHeight'])
             df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'regular':
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"MonoChromatic;A:{df.at[i, 'significantWaveHeight']/2};T:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'regularHFP':
+            A = round(df.at[i, 'significantWaveHeight'],8)/2
+            T = round(df.at[i, 'peakPeriod'],8)
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"MonoChromatic;A:{A};T:{T}"
         else:
             print(f"Unknown spectrum type {row['spectrum_type']} for spectrum ID {row['spectrum_id']}. Skipping incident spectrum type calculation.")
 
@@ -278,8 +351,29 @@ def calculate_sim_incidentspectrumtype(spectrum_type = None):
     overwrite_spectrums(df)
 
     #CSV handling
-
-
+def get_color_for_spectrum_type(spectrum_type):
+    """
+    Returns a color based on the spectrum type for consistent plotting.
+    
+    Parameters:
+        spectrum_type: The type of the spectrum (e.g., 'spotter', 'bretschneider')
+    Returns:
+        color: A string representing the color to use for plotting
+    """
+    match spectrum_type:
+        case "bretschneider":
+            color = "tab:orange"
+        case "BretHFP":
+            color = "tab:red"
+        case "spotter":
+            color = "tab:blue"
+        case "regular":
+            color = "tab:green"
+        case "regularHFP":
+            color = "tab:purple"
+        case _:
+            color = "tab:gray"
+    return color
 
 def read_spectrums():
     """
@@ -361,12 +455,18 @@ def recreate_fully():
     calculate_all('energy')
     calculate_sim_incidentspectrumtype()
 def main():
-    calculate_all('energy')
+    #calculate_all('energy')
     #calculate_sim_incidentspectrumtype()
     # spec_list = spectrum_list()
     # for spec in spec_list:
     #     construct_bretschneider_min(spec)
     # #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
-    # calculate_sim_incidentspectrumtype()
+    #calculate_sim_incidentspectrumtype()
+
+    # spec_list = spectrum_list()
+    # for spec in spec_list:
+    #     construct_reg_HFP(spec)
+    calculate_sim_incidentspectrumtype()
+
 if __name__ == '__main__':
     main()
