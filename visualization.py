@@ -513,6 +513,12 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
     'run_number'
     metric: the metric to plot on the y axis
     cols: the number of columns to use in the subplot grid (default 2)
+    plot_type: the type of plot to create - listed below
+        -spectrumindividual: plots the spectrum for each run, with the damping seed value included in the title, to investigate how the damping seed may be impacting the spectrum itself
+        -avg_on_one: For all root spectrum and derived spectrums plot on the same axes - can manually change to semilogy
+        -avg_by_spec
+        -cor_max_diff_by_spec: #For each root spectrum, plot the difference in energy between the derived "max damping" and the root max energy
+            -damping_ref: Also plots a reference damping value - if all_scales, plots all damping scales, if not, just plots the reference damping scale specified by the user
 
     """
     #Access the data
@@ -774,6 +780,20 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             spec_dat_spot = function_data[(function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot) & (function_data['spectrum_type'].str.contains('spotter'))]
             avg_data_spot = spec_dat_spot.groupby(' ScaleFactor')[metric].mean().reset_index()
             max_energy_row_spot = avg_data_spot.nlargest(1, columns=[metric])
+
+            if 'damping_ref' in kwargs and kwargs['damping_ref'] == 'all_scales': #Plot all the damping scales as references, not just the reference damping scale specified by the user
+                all_scale_rows = avg_data_spot.to_dict('records')
+                for row in all_scale_rows:
+                    sf = row[' ScaleFactor']
+                    row['display_title'] = f'Damping {sf}' 
+                    row['color'] = 'gray'
+            elif 'damping_ref' in kwargs: #Plot the reference damping scale specified by the user as a reference line in the plot
+                all_scale_rows = avg_data_spot[avg_data_spot[' ScaleFactor'] == kwargs['damping_ref']].iloc[0]
+                all_scale_rows['display_title'] = f'Ref: Scale {kwargs['damping_ref']}'
+                all_scale_rows['color'] = 'k'
+            else:
+                pass
+
             print(f"max energy row spot {max_energy_row_spot}")
             
             for j, spec in enumerate(spec_list):
@@ -795,12 +815,13 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             #     print(f"for each case: {row['display_title']}: {row[metric]}, {max_energy_row_spot[metric].iloc[0]}, {(row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0]}")
 
             #ymax[prefix] = max(((row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0]) for row in max_energy_rows) #TODO: Use ymax to change limits of chart
-            bars = ax.bar([row['display_title'][5:] for row in max_energy_rows], 
-                   [((row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0])*100 for row in max_energy_rows], 
-                   color=[row['color'] for row in max_energy_rows])
+            all_rows = ([locals().get('all_scale_rows')] if locals().get('all_scale_rows') is not None else []) + max_energy_rows #Add the damping reference if added previously
+            bars = ax.bar([row['display_title'][5:] for row in all_rows], 
+                   [((row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0])*100 for row in all_rows], 
+                   color=[row['color'] for row in all_rows])
             ax.bar_label(bars, fmt='%.1f%%', padding=3)
             ax.set_title(f"Spectrum {prefix[:3]}")
-            ax.set_xticks(range(len(max_energy_rows)))
+            ax.set_xticks(range(len(all_rows)))
             ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
             ax.set_ylabel('Percent Difference in Energy')
             ax.grid(True, alpha=0.3)
@@ -811,7 +832,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         for i, (prefix, spec_list) in enumerate(groups.items()):
             ax = axes_flat[i]
 
-            ax.set_ylim(-5, 1) # Set y-axis limit based on max value for better visualization
+            ax.set_ylim(-21, 1) # Set y-axis limit based on max value for better visualization
             ax.axhline(y=0,linewidth=1, color='k')
     fig.suptitle(wrap_title(f"Informed Optimal Damping vs {metric} across Spectrums"), fontsize=16)
     fig.supxlabel('Spectrum used', fontsize =12)
@@ -850,7 +871,7 @@ def wrap_title(*args):
 def main():
     
     damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec')
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref=1.2)
     plt.show()
     print("This was a direct call of visualization.py, which should be used simply for testing")
 ##################DONE TESTING##################
