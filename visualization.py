@@ -527,7 +527,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
     if 'batch_name' in kwargs and 'run_number' not in kwargs:
         # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
-        batch_keys = ['batch_name'] + [f'batch_name{i}' for i in range(2, 7)] #TODO: make this dynamic for more batch names
+        batch_keys = [k for k in kwargs if k.startswith('batch_name')]
     
         # List to collect individual DataFrames before final concatenation
         frames_to_concat = []
