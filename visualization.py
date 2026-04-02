@@ -815,25 +815,33 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             #     print(f"for each case: {row['display_title']}: {row[metric]}, {max_energy_row_spot[metric].iloc[0]}, {(row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0]}")
 
             #ymax[prefix] = max(((row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0]) for row in max_energy_rows) #TODO: Use ymax to change limits of chart
-            all_rows = ([locals().get('all_scale_rows')] if locals().get('all_scale_rows') is not None else []) + max_energy_rows #Add the damping reference if added previously
-            bars = ax.bar([row['display_title'][5:] for row in all_rows], 
-                   [((row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0])*100 for row in all_rows], 
-                   color=[row['color'] for row in all_rows])
+            all_rows = []
+            if locals().get('all_scale_rows') is not None:
+                raw_all_scale_rows = locals().get('all_scale_rows')
+                if isinstance(raw_all_scale_rows, list):
+                    all_rows.extend(raw_all_scale_rows)
+                else:
+                    all_rows.append(raw_all_scale_rows)
+            all_rows.extend(max_energy_rows) #Add the damping reference if added previously
+
+            y_vals = [((row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0])*100 for row in all_rows]
+            bars = ax.bar([row['display_title'][5:] for row in all_rows], y_vals, color=[row['color'] for row in all_rows])
             ax.bar_label(bars, fmt='%.1f%%', padding=3)
             ax.set_title(f"Spectrum {prefix[:3]}")
             ax.set_xticks(range(len(all_rows)))
             ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
             ax.set_ylabel('Percent Difference in Energy')
             ax.grid(True, alpha=0.3)
+
+            # dynamic ylim based on actual plotted values for this subplot
+            min_y, max_y = min(y_vals), max(y_vals)
+            buffer = max(0.1 * (max_y - min_y), 1.0)
+            ax.set_ylim(min_y - buffer, max_y + buffer)
+            ax.axhline(y=0, linewidth=1, color='k')
             print(f'ax: {ax}')
 
         #ymax_global = max(ymax.values())
         print(f'ymax: {ymax}')
-        for i, (prefix, spec_list) in enumerate(groups.items()):
-            ax = axes_flat[i]
-
-            ax.set_ylim(-21, 1) # Set y-axis limit based on max value for better visualization
-            ax.axhline(y=0,linewidth=1, color='k')
     fig.suptitle(wrap_title(f"Informed Optimal Damping vs {metric} across Spectrums"), fontsize=16)
     fig.supxlabel('Spectrum used', fontsize =12)
     
@@ -871,7 +879,7 @@ def wrap_title(*args):
 def main():
     
     damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref=1.2)
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     plt.show()
     print("This was a direct call of visualization.py, which should be used simply for testing")
 ##################DONE TESTING##################
