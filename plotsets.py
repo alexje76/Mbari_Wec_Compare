@@ -30,8 +30,6 @@ def profiling_test():
     
     # Print the top 45 statistics
     stats.print_stats(45)
-
-
 def damping_opt_3_31():
     """
     This function is used to plot damping optimization plots. 

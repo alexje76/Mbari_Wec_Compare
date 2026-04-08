@@ -16,10 +16,33 @@ import glob
 import warnings
 import cProfile
 import pstats
-
+import multiprocessing as mp
 
 import mainDF_management as mDF_mgmt 
 import visualization #TODO: remove circular import if possible, added in specifcially for transient plot
+
+class AnalyticWrapper:
+    """Picklable wrapper for analytic functions"""
+    def __init__(self, analytic_func):
+        self.analytic_func = analytic_func
+    
+    def __call__(self, data):
+        return self.analytic_func(data)
+    
+    @property
+    def name(self):
+        return self.analytic_func.__name__
+
+_worker_mainDF = None
+_worker_analytic = None
+
+def worker_initializer(mainDF_read_data, analytic_wrapper):
+    """Initialize worker process with shared data
+    This function is called when each worker process starts. It sets global variables that can be accessed by the worker function.
+    """
+    global _worker_mainDF, _worker_analytic
+    _worker_mainDF = mainDF_read_data  # Read-only copy
+    _worker_analytic = analytic_wrapper
 
 
 def analytics(**kwargs):
@@ -40,6 +63,7 @@ def analytics(**kwargs):
 
         if row['trim']:
             trim_amount = row['trim']
+            print(f'the trim amount for {pblog_name} is {trim_amount}') #Debugging
             if trim_amount > 0:
                 print('trimming in greater than 0') #Debugging
                 pass
@@ -78,6 +102,102 @@ def analytics(**kwargs):
                     transient_data.loc[len(transient_data)] = [i, trim_amount, analytictransient]
                 visualization.transient_investigation_plot(transient_data, pblog_name)
 
+def analytics_parallel(transient_invesigation=False, **kwargs):
+    #First see if it is a batch, to get and pass each run individually
+    if 'batch_name' in kwargs and not 'run_number' in kwargs:
+        mainDF = mDF_mgmt.access_mainDF()
+        analytics_data = mainDF[mainDF['batch_file_name'] == kwargs['batch_name']]
+        print (analytics_data)
+    #TODO: implement other non batch cases
+
+    if transient_invesigation:
+        raise NotImplementedError("Parallel transient investigation not implemented yet. Please run analytics function with transient_investigation=True for now rather than parallel.")
+    
+    #Get the analysis type and use class above to pass it
+    analytic = kwargs['analytic']
+    analytic_wrapper = AnalyticWrapper(analytic)
+
+    # Prepare mainDF as read-only data for workers
+    mainDF_read_data = mainDF.copy()
+    
+    #Start up the parallel processes and run the analytics in parallel, passing the mainDF as read only and analytic wrapper to each process
+    with mp.Pool(
+                processes=mp.cpu_count()-2, 
+                #processes=4,
+                initializer=worker_initializer, 
+                initargs=(mainDF_read_data, analytic_wrapper) #MainDF here is read only
+    ) as pool:
+                results = pool.starmap(
+                analytics_parallel_process, 
+                analytics_data.iterrows()
+        )
+    
+    #Now take the results returned by each process and write them back to the mainDF using the index passed in, then write the mainDF to csv
+    for result in results:
+        mainDF.at[result['index'], result['analytic']] = result['result']
+
+     # Write updated mainDF once
+    mDF_mgmt.write_mainDF(mainDF)
+    
+    print(f"\nCompleted {len(results)} runs:")
+    for result in results:
+        print(f"  {result['pblog']}: {result['result']:.2f} ({result['analytic']})")
+    
+    return results
+
+def analytics_parallel_process(index, row):
+    """
+    Using global variables from initializer, calculate an analytic for a single run and return the result along with the index and analytic name to be written back to mainDF by the parent process.
+    Inputs: index - index from main DF
+            row - row containing information for the run (mainDF row)  
+    Outputs: dictionary containing index, pblog name, analytic name, and result to be written back to mainDF by parent process
+    WARNINGS: 
+        - This function cannot handle window lengths other than 0
+        - This function cannot handle transient investigation
+        - Sim_run_time is the only analytic run on non-trimmed data. 
+        - Trim amounts are set to be 10% of the total runtime if there is not a ['trim'] col in mainDF
+    """
+    global _worker_mainDF, _worker_analytic
+
+    if _worker_mainDF is None or _worker_analytic is None: #Check if the parallel processs is correctly implemented and initialized
+        raise RuntimeError("Worker not initialized properly")
+    
+    mainDF = _worker_mainDF  #Gather the necessary "arguments"
+    analytic_func = _worker_analytic.analytic_func
+    analytic_name = _worker_analytic.name
+
+    pblog_name = row[' pblogFilename'].strip()
+    run_data = get_data(pblog_name=pblog_name)
+    #print(run_data)
+
+    if row['trim']:
+        trim_amount = row['trim']
+        if trim_amount > 0:
+            print('trimming in greater than 0') #Debugging
+            pass
+        else:
+            trim_amount = (run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
+            #print('trimming in the else - is a #todo') #Debugging
+    else:
+        trim_amount = 0  # seconds
+        warnings.warn(f"No trim amount specified for {pblog_name}. Proceeding without trimming.")
+
+    window_length = 0
+    trimmed_data = trim(run_data, trim_amount, window_length)
+
+    if analytic_name == 'sim_run_time':
+        result = analytic_func(run_data)
+        print(f'  {pblog_name}: using untrimmed data')
+    else:
+        result = analytic_func(trimmed_data)
+    return {
+        'index': index,
+        'pblog': pblog_name,
+        'result': result,
+        'analytic': analytic_name
+    }
+
+
 ######## POWER FUNCTIONS ##########
 def avg_tot_power(trimmed_data):
     #Calculate average total power from a run
@@ -115,7 +235,7 @@ def max_timestep_power(trimmed_data): #TODO change to be consistent naming
 ######## START SPRING FUNCTIONS #############################
 def max_spring_range(trimmed_data):
     max_spring_range = trimmed_data[' SC Range Finder (in)'].max()
-    print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
+    #print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
 
     if not np.isscalar(max_spring_range): raise TypeError(f"must be a scalar number, got {type(max_spring_range).name}")
     else:
@@ -197,13 +317,18 @@ def batch_names(**kwargs):
         return batch_keys
     else:
         raise ValueError("Must provide batch_name(s) without run_number to get batch names.")
+    
+def run_all(analytic, batch_name_excluded):
+    pass
 
 ##################TESTING##################
 def main():
     pr = cProfile.Profile()
     pr.enable()
 
-    analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)
+    analytics_parallel(batch_name="batch_results_20260211181904", analytic=max_spring_range)
+    analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
+    analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
 
     pr.disable()
     stats = pstats.Stats(pr).sort_stats('cumtime')
