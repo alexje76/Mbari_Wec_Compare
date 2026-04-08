@@ -6,12 +6,17 @@
 # TODO: Add in docstrings for functions
 
 
+import pstats
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import glob
 import warnings
+import cProfile
+import pstats
+
 
 import mainDF_management as mDF_mgmt 
 import visualization #TODO: remove circular import if possible, added in specifcially for transient plot
@@ -36,11 +41,11 @@ def analytics(**kwargs):
         if row['trim']:
             trim_amount = row['trim']
             if trim_amount > 0:
-                pass
                 print('trimming in greater than 0') #Debugging
+                pass
             else:
-                trim_amount = 0 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
-               # print('trimming in the else - is a #todo') #Debugging
+                trim_amount = (run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
+                print('trimming in the else - is a #todo') #Debugging
         else:
             trim_amount = 0  # seconds
             warnings.warn(f"No trim amount specified for {pblog_name}. Proceeding without trimming.")
@@ -50,7 +55,7 @@ def analytics(**kwargs):
         else:
             window_length = 0
 
-        print(trim_amount)
+        #print(trim_amount)
         trimmed_data = trim(run_data, trim_amount, window_length)
 
         if analytic == 'sim_run_time':
@@ -62,7 +67,7 @@ def analytics(**kwargs):
         mDF_mgmt.write_mainDF(mainDF)
 
         ######## HERE IS CODE TO TEMPORARILY PLOT AGAINST DIFFERENT TRIM AMOUNTS - MOVING WINDOW
-        if 'transient_investigation' in kwargs: #TODO: generalize or refactor
+        if 'transient_investigation' in kwargs and kwargs['transient_investigation'] == True: #TODO: generalize or refactor
             if kwargs['transient_investigation'] == True:
                 columns = ['i', 'trimamount', 'avg_power']
                 transient_data = pd.DataFrame(columns=columns) #create frame to hold transient data
@@ -109,14 +114,14 @@ def max_timestep_power(trimmed_data): #TODO change to be consistent naming
 ######## END POWER FUNCTIONS #############################
 ######## START SPRING FUNCTIONS #############################
 def max_spring_range(trimmed_data):
-    spring_range = trimmed_data[' SC Range Finder (in)']
-    max_spring_range = np.max(spring_range)
+    max_spring_range = trimmed_data[' SC Range Finder (in)'].max()
+    print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
 
     if not np.isscalar(max_spring_range): raise TypeError(f"must be a scalar number, got {type(max_spring_range).name}")
     else:
         return max_spring_range
 
-######## END SPRING FUNCTIONS #############################
+######## END SPRING FUNCTIONS #############################s
 
 ####### START UNGROUPED FUNCTIONS ###########################
 # ##Not doing what I hoped atm #TODO
@@ -185,10 +190,31 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
 
     return run_data
 
+def batch_names(**kwargs):
+    if 'batch_name' in kwargs and 'run_number' not in kwargs:
+        # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
+        batch_keys = [kwargs[k] for k in kwargs if k.startswith('batch_name')]
+        return batch_keys
+    else:
+        raise ValueError("Must provide batch_name(s) without run_number to get batch names.")
+
 ##################TESTING##################
 def main():
-    analytics(batch_name='batch_results_20260327142504', analytic=avg_tot_power, transient_investigation=False)
+    pr = cProfile.Profile()
+    pr.enable()
 
+    analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)
+
+    pr.disable()
+    stats = pstats.Stats(pr).sort_stats('cumtime')
+    
+    # Print the top 45 statistics
+    stats.print_stats(45)
+
+    #cProfile.run('analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)') 
+    # for batch_name_idv in batch_names(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339'):
+    #     print(batch_name_idv)
+    #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
     
 ##################DONE TESTING##################
 
