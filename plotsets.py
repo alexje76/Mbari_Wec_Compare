@@ -13,6 +13,25 @@ import wave_operations
 import spectrums
 import visualization
 
+def profiling_test():
+    """
+    This function is used to profile a function to find where it spent it's time
+    """
+    import cProfile
+    import pstats
+
+    pr = cProfile.Profile()
+    pr.enable()
+
+    analytics_parallel(batch_name="batch_results_20251208191310", analytic=max_spring_range)
+
+    pr.disable()
+    stats = pstats.Stats(pr).sort_stats('cumtime')
+    
+    # Print the top 45 statistics
+    stats.print_stats(45)
+
+
 def damping_opt_3_31():
     """
     This function is used to plot damping optimization plots. 
