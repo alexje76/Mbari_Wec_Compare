@@ -188,22 +188,33 @@ def transient_investigation_plot(transient, pblog_name):
     plt.show()
 def hack_heatmap_plot(**kwargs):
     """
-    Plot a heatmap using the specified parameters. #TODO make sure it will not try to hand other spectrum types
+    Plot a heatmap using the specified parameters. #TODO make sure it will not try to handle other spectrum types beyond monochromatic
     """
     #Access the data
     mainDF = mDF_mgmt.access_mainDF()    
 
-    #Use function pass to get data indices
-    if 'batch_name' in kwargs and not 'run_number' in kwargs:
-        #get mainDF indices from batch name
-        heatmap_data = mainDF[mainDF['batch_file_name'] == kwargs['batch_name']].copy()
-        heatmap_data_name = kwargs['batch_name']
+    if 'batch_name' in kwargs and 'run_number' not in kwargs:
+        # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
+        batch_keys = [k for k in kwargs if k.startswith('batch_name')]
+    
+        # List to collect individual DataFrames before final concatenation
+        frames_to_concat = []
 
-    if 'batch_name2' in kwargs and not 'run_number' in kwargs:
-        #get mainDF indices from batch name
-        heatmap_data_batch2 = mainDF[mainDF['batch_file_name'] == kwargs['batch_name2']].copy()
-        heatmap_data_name2 = kwargs['batch_name2']
-        heatmap_data = pd.concat([heatmap_data, heatmap_data_batch2], ignore_index=True)
+        for key in batch_keys:
+            if key in kwargs:
+                # Filter and copy the relevant data
+                temp_df = mainDF[mainDF['batch_file_name'] == kwargs[key]].copy()
+                frames_to_concat.append(temp_df)
+            
+                # Dynamically set variables like heatmap_data_name, heatmap_data_name2, etc.
+                # Note: Using a dictionary is often cleaner than dynamic variable names
+                suffix = key.replace('batch_name', '')
+                globals()[f'heatmap_data_name{suffix}'] = kwargs[key]
+
+        # Efficiently combine all collected data at once
+        if frames_to_concat:
+            function_data = pd.concat(frames_to_concat, ignore_index=True)
+        heatmap_data = function_data.copy() #TODO: Might be better to change all future calls of heatmap data to function instead of this.
 
     if 'one_physics_step' in kwargs and kwargs['one_physics_step'] is not None:
         heatmap_data = heatmap_data[heatmap_data[' PhysicsStep'] == kwargs['one_physics_step']]
@@ -287,7 +298,125 @@ def hack_heatmap_plot(**kwargs):
         output.rename(columns={'T': 'F'}, inplace=True)
         print(output.to_string(index=False))
         return output #TODO: have this better suited for the optional return
+def heatmap_RXO(**kwargs):
+    """
+    Plot a heatmap and/or return an RXO table for regular wave runs, using the specified parameters. #TODO make sure it will not try to handle other spectrum types beyond monochromatic
+    
+    -------
+    Parameters:
 
+    ------
+    Returns:
+
+    """
+    #Access the data
+    mainDF = mDF_mgmt.access_mainDF()    
+
+    if 'batch_name' in kwargs and 'run_number' not in kwargs:
+        # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
+        batch_keys = [k for k in kwargs if k.startswith('batch_name')]
+    
+        # List to collect individual DataFrames before final concatenation
+        frames_to_concat = []
+
+        for key in batch_keys:
+            if key in kwargs:
+                # Filter and copy the relevant data
+                temp_df = mainDF[mainDF['batch_file_name'] == kwargs[key]].copy()
+                frames_to_concat.append(temp_df)
+            
+                # Dynamically set variables like heatmap_data_name, heatmap_data_name2, etc.
+                # Note: Using a dictionary is often cleaner than dynamic variable names
+                suffix = key.replace('batch_name', '')
+                globals()[f'heatmap_data_name{suffix}'] = kwargs[key]
+
+        # Efficiently combine all collected data at once
+        if frames_to_concat:
+            function_data = pd.concat(frames_to_concat, ignore_index=True)
+        heatmap_data = function_data.copy() #TODO: Might be better to change all future calls of heatmap data to function instead of this.
+
+    if 'one_physics_step' in kwargs and kwargs['one_physics_step'] is not None:
+        heatmap_data = heatmap_data[heatmap_data[' PhysicsStep'] == kwargs['one_physics_step']]
+
+    heatmap_data[['A', 'T']] = heatmap_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.extract(r'A:([0-9.]+);T:([0-9.]+)') #capture A,T all after that have a 0-9 or .
+    heatmap_data[['A', 'T']] = heatmap_data[['A', 'T']].astype(float)
+    g = 9.81
+    row = 1020
+    wec_diameter = 2.64 #meters
+
+    heatmap_data['flux'] = (((g**2)*row/8)*wec_diameter*(heatmap_data['A']**2) * (heatmap_data['T']))  # Flux, munltiplied by wec area to just get watts  TODO: implememnt the non simplified version
+    heatmap_data['avg_pwr_eff'] = heatmap_data[kwargs['value']] / heatmap_data['flux']
+    #print(heatmap_data[['A', 'T', 'flux', kwargs['value'], 'avg_pwr_eff']]) 
+
+    if 'error_removal' in kwargs and kwargs['error_removal'] == True:
+        heatmap_data = heatmap_data[heatmap_data[' SimReturnCode'] == 0] #remove error
+
+    cmap = mpl.colormaps['PiYG'] # Choose a colormap
+    norm = mpl.colors.CenteredNorm(vcenter=0) #center the colormap at 0
+    norm.autoscale(heatmap_data['avg_pwr_eff']) #autoscale based on data, matching color map endpoints to data
+
+    heatmap_data['edgecolor'] = heatmap_data['avg_pwr_eff'].apply(lambda v: 'purple' if v <= 0 else 'green')  # Example condition for edge color
+    #print(heatmap_data['avg_pwr_eff'].max())
+    #print(heatmap_data['avg_pwr_eff'].min())
+
+    if 'damping_values' in kwargs and kwargs['damping_values'] is True:
+        damping = heatmap_data[' ScaleFactor'].unique()
+        print(damping)
+        markers = ['o', 'd', '^', 's', 'D', 'v', 'P', '*']  # Extend this list if you have more damping values
+        sc = {} 
+        damp_spread = {}
+        for i, damp in enumerate(damping):
+            damp_data = heatmap_data[heatmap_data[' ScaleFactor'] == damp]
+            #print(damp_data)
+            print(f'Damping Scale {damp}: max avg power eff {damp_data["avg_pwr_eff"].max()}, min avg power eff {damp_data["avg_pwr_eff"].min()}')
+            damp_spread[damp] = damp_data['avg_pwr_eff'].max() - damp_data['avg_pwr_eff'].min()
+            sc[f'sc{i}'] = plt.scatter(damp_data['T'] + (i*0.1)-0.1, damp_data['A'], c=damp_data['avg_pwr_eff'], cmap = cmap, norm = norm, edgecolors=damp_data['edgecolor'], linewidths=0.5, s=50, label=f'Damping Scale {damp}', marker=markers[i], alpha=0.7)
+        max_spread_damp = max(damp_spread, key=damp_spread.get)
+        cbar = plt.colorbar(sc[f'sc{int(max_spread_damp)}']) #TODO: make sure this works with multiple scatters
+        cbar.set_label("Power efficiency of incident wave")  # label for the color scale
+    else:
+        sc = plt.scatter(heatmap_data['T'], heatmap_data['A'], c=heatmap_data['avg_pwr_eff'], cmap = cmap, norm = norm, edgecolors=heatmap_data['edgecolor'], linewidths=0.5, s=200)
+        cbar = plt.colorbar(sc) #TODO: make sure this works with multiple scatters
+        cbar.set_label("Power efficiency of incident wave")  # label for the color scale
+
+    if 'val_plotted' in kwargs and kwargs['val_plotted'] is True:
+        cmap2 = mpl.colormaps['gist_rainbow'] # Choose a colormap for power #TODO:Cmasher -cool is another good option
+    #print(heatmap_data[kwargs['value']].max())
+    #print(heatmap_data[kwargs['value']].min())
+        #norm2 = mpl.colors.LogNorm(vmin = 1, vmax=heatmap_data[kwargs['value']].max()) #log colormap with negative values clipped
+        #norm2 = mpl.colors.Normalize(vmin=1, vmax=heatmap_data[kwargs['value']].max()) #Non-log colormap with negative values clipped
+        norm2 = mpl.colors.Normalize(vmin=1, vmax=heatmap_data[kwargs['value']].max()/3) #Non-log colormap with negative values clipped -divided by 2 for more color resolution
+    #norm2 = mpl.colors.TwoSlopeNorm(vmin = heatmap_data[kwargs['value']].min(), vmax=heatmap_data[kwargs['value']].max(), vcenter=0) #center the colormap at 0
+    #norm2.autoscale(heatmap_data[kwargs['value']]) #autoscale based on data, matching color map endpoints to data
+        sc2 = plt.scatter(heatmap_data['T'], heatmap_data['A']+0.05, c=heatmap_data[kwargs['value']], cmap = cmap2, norm = norm2, edgecolors='black', linewidths=0.5, s=75, marker='p')
+
+        cbar2 = plt.colorbar(sc2)
+        cbar2.set_label(f"{kwargs['value']}")  # label for the color scale
+
+
+    plt.title(f"Heatmap for {heatmap_data_name} and {heatmap_data_name2 if 'batch_name2' in kwargs else ''}: Avg power efficiency vs Wave Period and Amplitude")
+    plt.xlabel('Period (s)')
+    plt.ylabel('Amplitude (m)')
+    plt.grid()
+
+    if 'REO' in kwargs and kwargs['REO'] is not None: #Code to output the REO, for damping 1, using the amplitude as the number given
+        # Filter for damping factor 1.0
+        d_one = heatmap_data[heatmap_data[' ScaleFactor'] == 1.0]
+        
+        # If a specific amplitude (float/int) was passed, filter by it
+        target_amp = kwargs['REO']
+        if isinstance(target_amp, (int, float)):
+            d_one = d_one[d_one['A'] == target_amp]
+            print(f"\n--- Efficiency for Amplitude {target_amp} (Damping = 1) ---")
+        else:
+            print("\n--- Efficiency for All Amplitudes (Damping = 1) ---")
+
+        # Sort by Period (T) and display
+        output = d_one[['T', 'avg_pwr_eff']].sort_values(['T'])
+        output['T'] = 1 / output['T']
+        output.rename(columns={'T': 'F'}, inplace=True)
+        print(output.to_string(index=False))
+        return output #TODO: have this better suited for the optional return
 def error_code_analysis_plot(**kwargs):
 
     """
@@ -877,11 +1006,14 @@ def wrap_title(*args):
     return '\n'.join(textwrap.wrap(args[0], width))
 ##################TESTING##################
 def main():
-    
+    spectrum_nums = spectrums.spectrum_list()
+    out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
+    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular'], n_cols=3, metric_sv='energy', cumsum=False, reo_df = out)
+
     damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='max_spring_range', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
     damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='max_spring_range', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     plt.show()
-    print("This was a direct call of visualization.py, which should be used simply for testing")
+    print("This was a direct call of visualization.py, which should be used sparingly")
 ##################DONE TESTING##################
 if __name__ == '__main__':
     main() 
