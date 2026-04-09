@@ -884,4 +884,4 @@ def main():
     print("This was a direct call of visualization.py, which should be used simply for testing")
 ##################DONE TESTING##################
 if __name__ == '__main__':
-    main()
+    main() 

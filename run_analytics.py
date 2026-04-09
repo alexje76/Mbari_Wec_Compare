@@ -318,23 +318,48 @@ def batch_names(**kwargs):
     else:
         raise ValueError("Must provide batch_name(s) without run_number to get batch names.")
     
-def run_all(analytic, batch_name_excluded):
-    pass
+def run_all_except(analytic, copies=False, **kwargs):
+    """Calculates the analytic given for all simulations that were previously run and recorded in the mainDF,
+        Those batches explicity excluded by batch name in kwargs will not be run,
+        Copies changes if there it does so for any copies. 
+
+    Parameters
+    ----------
+    analytic : variable(I think?)
+        _description_
+    copies : bool, optional
+        set to be True if you want copies to be included, by default False
+
+    Warnings:
+        - The copies parameter would not remove past the 10th copy of the same batch. 
+    """    
+    if 'batch_name' in kwargs and 'run_number' not in kwargs:
+        # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
+        batch_keys_ex = [kwargs[k] for k in kwargs if k.startswith('batch_name')]
+    else:
+        raise ValueError("Must provide batch_name(s) without run_number to get batch names.")
+
+    mainDF = mDF_mgmt.access_mainDF()
+    batch_names = mainDF['batch_file_name'].unique()
+    
+    if not copies: #Removes all batch names that are copies - eg end in _* 
+        batch_names = [batch for batch in batch_names if not any(batch.endswith(f"_{i}") for i in range(1, 10))]
+    else:
+        pass
+    
+    for batch_name in batch_names:
+        if batch_name not in batch_keys_ex:
+            print(f"Running analytics for batch: {batch_name}")
+            analytics_parallel(batch_name=batch_name, analytic=analytic)
+    
 
 ##################TESTING##################
 def main():
-    pr = cProfile.Profile()
-    pr.enable()
 
-    analytics_parallel(batch_name="batch_results_20260211181904", analytic=max_spring_range)
-    analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
-    analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
-
-    pr.disable()
-    stats = pstats.Stats(pr).sort_stats('cumtime')
-    
-    # Print the top 45 statistics
-    stats.print_stats(45)
+    #run_all_except(analytic=max_spring_range, batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339') 
+    analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
+    # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
+    # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
 
     #cProfile.run('analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)') 
     # for batch_name_idv in batch_names(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339'):

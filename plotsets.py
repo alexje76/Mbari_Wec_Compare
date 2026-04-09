@@ -15,7 +15,7 @@ import visualization
 
 def profiling_test():
     """
-    This function is used to profile a function to find where it spent it's time
+    This function is used to profile a function to find where it spent it's time - meant to be placed in main
     """
     import cProfile
     import pstats
@@ -23,7 +23,7 @@ def profiling_test():
     pr = cProfile.Profile()
     pr.enable()
 
-    analytics_parallel(batch_name="batch_results_20251208191310", analytic=max_spring_range)
+   # analytics_parallel(batch_name="batch_results_20251208191310", analytic=max_spring_range) #chagne this for the function call in question
 
     pr.disable()
     stats = pstats.Stats(pr).sort_stats('cumtime')
