@@ -30,6 +30,12 @@ def profiling_test():
     
     # Print the top 45 statistics
     stats.print_stats(45)
+def damping_opt_4_8():
+    """
+    This function is used to plot damping optimization plots, and was used for the MBARI meeting most recently from 4/8
+    """
+    visualization.damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    visualization.damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='ave_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
 def damping_opt_3_31():
     """
     This function is used to plot damping optimization plots. 
