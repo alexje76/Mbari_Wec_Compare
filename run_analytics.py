@@ -241,6 +241,13 @@ def max_spring_range(trimmed_data):
     else:
         return max_spring_range
 
+def percentile_95_spring_range(trimmed_data):
+    percentile_95_spring_range = trimmed_data[' SC Range Finder (in)'].percentile(95) 
+    #print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
+
+    if not np.isscalar(percentile_95_spring_range): raise TypeError(f"must be a scalar number, got {type(percentile_95_spring_range).name}")
+    else:
+        return percentile_95_spring_range
 ######## END SPRING FUNCTIONS #############################s
 
 ####### START UNGROUPED FUNCTIONS ###########################
