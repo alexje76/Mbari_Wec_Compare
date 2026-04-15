@@ -415,7 +415,12 @@ def heatmap_RXO(**kwargs):
     plt.ylabel('Amplitude (m)')
     plt.grid()
 
-    ################################ RXO Output Code #####################################################################
+    ################################ Output Code #####################################################################
+    if 'csv_data' in kwargs and kwargs['csv_data'] is True:
+        heatmap_data.to_csv(f"Regular_Wave_data_power_for_sarah_4_14_26.csv", index=False)
+        print("Printed to CSV")
+    
+
     if RXO is not None: #Code to output the RXO, for damping 1, using the amplitude as the number given
         # Filter for damping factor 1.0
         d_one = heatmap_data[heatmap_data[' ScaleFactor'] == 1.0]
@@ -434,6 +439,8 @@ def heatmap_RXO(**kwargs):
         output.rename(columns={'T': 'F'}, inplace=True)
         print(output.to_string(index=False))
         return output #TODO: have this better suited for the optional return
+
+
 def error_code_analysis_plot(**kwargs):
 
     """
@@ -1023,10 +1030,10 @@ def wrap_title(*args):
     return '\n'.join(textwrap.wrap(args[0], width))
 ##################TESTING##################
 def main():
-    out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5)
+    out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
 
     spectrum_nums = spectrums.spectrum_list()
-    # out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
+    #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
     plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular'], n_cols=3, metric_sv='energy', cumsum=False, reo_df = out)
 
     damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
