@@ -234,7 +234,7 @@ def max_timestep_power(trimmed_data): #TODO change to be consistent naming
 ######## END POWER FUNCTIONS #############################
 ######## START SPRING FUNCTIONS #############################
 def max_spring_range(trimmed_data):
-    max_spring_range = trimmed_data[' SC Range Finder (in)'].max()
+    max_spring_range = trimmed_data[' SC Range Finder (in)'].max()  #Pandas Series has method .max
     #print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
 
     if not np.isscalar(max_spring_range): raise TypeError(f"must be a scalar number, got {type(max_spring_range).name}")
@@ -242,7 +242,7 @@ def max_spring_range(trimmed_data):
         return max_spring_range
 
 def percentile_95_spring_range(trimmed_data):
-    percentile_95_spring_range = trimmed_data[' SC Range Finder (in)'].percentile(95) 
+    percentile_95_spring_range = trimmed_data[' SC Range Finder (in)'].quantile(0.95)
     #print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
 
     if not np.isscalar(percentile_95_spring_range): raise TypeError(f"must be a scalar number, got {type(percentile_95_spring_range).name}")
@@ -344,7 +344,8 @@ def run_all_except(analytic, copies=False, **kwargs):
         # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
         batch_keys_ex = [kwargs[k] for k in kwargs if k.startswith('batch_name')]
     else:
-        raise ValueError("Must provide batch_name(s) without run_number to get batch names.")
+        batch_keys_ex = []
+        pass #TODO add back in
 
     mainDF = mDF_mgmt.access_mainDF()
     batch_names = mainDF['batch_file_name'].unique()
@@ -364,7 +365,7 @@ def run_all_except(analytic, copies=False, **kwargs):
 def main():
 
     #run_all_except(analytic=max_spring_range, batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339') 
-    analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
+    #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
 
@@ -372,6 +373,8 @@ def main():
     # for batch_name_idv in batch_names(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339'):
     #     print(batch_name_idv)
     #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
+
+    run_all_except(analytic=percentile_95_spring_range)
     
 ##################DONE TESTING##################
 
