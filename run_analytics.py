@@ -122,7 +122,7 @@ def analytics_parallel(transient_invesigation=False, **kwargs):
     
     #Start up the parallel processes and run the analytics in parallel, passing the mainDF as read only and analytic wrapper to each process
     with mp.Pool(
-                processes=mp.cpu_count()-2, 
+                processes=min(mp.cpu_count()-2), 
                 #processes=4,
                 initializer=worker_initializer, 
                 initargs=(mainDF_read_data, analytic_wrapper) #MainDF here is read only
@@ -285,9 +285,13 @@ def trim(data, trim_amount, window_length):
         return data.iloc[trim_idx_start:]
 
 
-def get_data(**kwargs): #deciding how to access data - batchname and run number, mainDF index, pblogname (closest to run name) ##probably use kwargs
+def get_data(feather=True, **kwargs): #deciding how to access data - batchname and run number, mainDF index, pblogname (closest to run name) ##probably use kwargs
     """
     Accessing the data using the mainDF path
+
+    ---------
+    Parameters:
+        feather: bool, optional: Whether to use feather files for faster access if available, by default True
     """
     if 'batch_name' in kwargs and 'run_number' in kwargs:
         #get mainDF index from batch name and run number
@@ -302,18 +306,30 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
         pblog_name = kwargs['pblog_name']
     else:
         raise ValueError("Must provide either batch_name and run_number, mainDF_index, or pblog_name to access data.")    
+    
+    # Define the feather directory path
+    feather_dir = r"F:\MBARI\runFeathers"
+    # Ensure the directory exists
+    os.makedirs(feather_dir, exist_ok=True)
+    pblog_name_feather = pblog_name[:-6]
 
-    print(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"))
-    run_data_path = glob.glob(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"), recursive=True) #TODO: change TestingData to batches
-    #print(glob.glob(f"Convergence_MCWaves/*", recursive=True))
-    if run_data_path:
-        run_data_path = run_data_path[0]
-        #print (run_data_path) #Debugging
+    if f"{pblog_name_feather}.feather" in os.listdir(feather_dir): # TODO
+        run_data = pd.read_feather(f"{feather_dir}\\{pblog_name_feather}.feather")
     else:
-        raise FileNotFoundError(f"{pblog_name} not found")
+        print(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"))
+        run_data_path = glob.glob(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"), recursive=True) #TODO: change TestingData to batches
+        #print(glob.glob(f"Convergence_MCWaves/*", recursive=True))
+        if run_data_path:
+            run_data_path = run_data_path[0]
+            #print (run_data_path) #Debugging
+        else:
+            raise FileNotFoundError(f"{pblog_name} not found")
 
-    run_data = pd.read_csv(run_data_path)
-    #run_data = run_data.str.replace("\U00002013", "-").str.replace(r'^-$', '0', regex=True).astype(float) #this line is an attempt to fix dashes converting to objects instead of floats - not working currently
+        run_data = pd.read_csv(run_data_path)
+        if feather == True: #TODO: change to be more dynamic
+           run_data.to_feather(f"{feather_dir}\\{pblog_name_feather}.feather")
+            
+        #run_data = run_data.str.replace("\U00002013", "-").str.replace(r'^-$', '0', regex=True).astype(float) #this line is an attempt to fix dashes converting to objects instead of floats - not working currently
 
     return run_data
 
@@ -374,7 +390,9 @@ def main():
     #     print(batch_name_idv)
     #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
 
-    run_all_except(analytic=percentile_95_spring_range)
+    #run_all_except(analytic=percentile_95_spring_range)
+
+    analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
     
 ##################DONE TESTING##################
 
