@@ -306,9 +306,15 @@ def get_data(feather=True, **kwargs): #deciding how to access data - batchname a
         pblog_name = kwargs['pblog_name']
     else:
         raise ValueError("Must provide either batch_name and run_number, mainDF_index, or pblog_name to access data.")    
+    
+    # Define the feather directory path
+    feather_dir = r"C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\runFeathers"
+    # Ensure the directory exists
+    os.makedirs(feather_dir, exist_ok=True)
+    pblog_name_feather = pblog_name[:-6]
 
-    if f"{pblog_name}.feather" in os.listdir(r"C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\runFeathers"): # TODO
-        run_data = pd.read_feather(f"C:\\Users\\Alex Eagan\\Documents\\GitHub\\Mbari_Wec_Compare\\runFeathers\\{pblog_name}.feather")
+    if f"{pblog_name_feather}.feather" in os.listdir(feather_dir): # TODO
+        run_data = pd.read_feather(f"{feather_dir}\\{pblog_name_feather}.feather")
     else:
         print(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"))
         run_data_path = glob.glob(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"), recursive=True) #TODO: change TestingData to batches
@@ -321,7 +327,7 @@ def get_data(feather=True, **kwargs): #deciding how to access data - batchname a
 
         run_data = pd.read_csv(run_data_path)
         if feather == True: #TODO: change to be more dynamic
-            run_data.to_feather(f"C:\\Users\\Alex Eagan\\Documents\\GitHub\\Mbari_Wec_Compare\\runFeathers\\{pblog_name}.feather")
+            run_data.to_feather(f"{feather_dir}\\{pblog_name_feather}.feather")
             
         #run_data = run_data.str.replace("\U00002013", "-").str.replace(r'^-$', '0', regex=True).astype(float) #this line is an attempt to fix dashes converting to objects instead of floats - not working currently
 
@@ -386,7 +392,7 @@ def main():
 
     #run_all_except(analytic=percentile_95_spring_range)
 
-    analytics(batch_name="batch_results_20260417113624", analytic=avg_tot_power, transient_investigation=False)
+    analytics(batch_name="batch_results_20260220105054", analytic=avg_tot_power, transient_investigation=False)
     
 ##################DONE TESTING##################
 
