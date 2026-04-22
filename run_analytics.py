@@ -285,9 +285,13 @@ def trim(data, trim_amount, window_length):
         return data.iloc[trim_idx_start:]
 
 
-def get_data(**kwargs): #deciding how to access data - batchname and run number, mainDF index, pblogname (closest to run name) ##probably use kwargs
+def get_data(feather=True, **kwargs): #deciding how to access data - batchname and run number, mainDF index, pblogname (closest to run name) ##probably use kwargs
     """
     Accessing the data using the mainDF path
+
+    ---------
+    Parameters:
+        feather: bool, optional: Whether to use feather files for faster access if available, by default True
     """
     if 'batch_name' in kwargs and 'run_number' in kwargs:
         #get mainDF index from batch name and run number
@@ -303,10 +307,8 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
     else:
         raise ValueError("Must provide either batch_name and run_number, mainDF_index, or pblog_name to access data.")    
 
-    #if pblog_name.feather in Filepath: # TODO
-        #run_data = pd.read_feather()
-    if 1 == 3:
-        pass
+    if f"{pblog_name}.feather" in os.listdir(r"C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\runFeathers"): # TODO
+        run_data = pd.read_feather(f"C:\\Users\\Alex Eagan\\Documents\\GitHub\\Mbari_Wec_Compare\\runFeathers\\{pblog_name}.feather")
     else:
         print(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"))
         run_data_path = glob.glob(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"), recursive=True) #TODO: change TestingData to batches
@@ -318,6 +320,9 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
             raise FileNotFoundError(f"{pblog_name} not found")
 
         run_data = pd.read_csv(run_data_path)
+        if feather == True: #TODO: change to be more dynamic
+            run_data.to_feather(f"C:\\Users\\Alex Eagan\\Documents\\GitHub\\Mbari_Wec_Compare\\runFeathers\\{pblog_name}.feather")
+            
         #run_data = run_data.str.replace("\U00002013", "-").str.replace(r'^-$', '0', regex=True).astype(float) #this line is an attempt to fix dashes converting to objects instead of floats - not working currently
 
     return run_data
