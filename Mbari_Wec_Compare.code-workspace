@@ -29,6 +29,12 @@
 		},
 		{
 			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/Empirical_Damping1_30"
+		},
+		{
+			"path": "../../../Downloads/2022_buoy_data_with_spotter"
+		},
+		{
+			"path": "../../../MREL Dropbox/Alex James Eagan/RcloneData/Seed_Statistics4_16"
 		}
 	],
 	"settings": {}

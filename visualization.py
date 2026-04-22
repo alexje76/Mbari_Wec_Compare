@@ -6,6 +6,8 @@ Functions:
 - transient_investigation_plot(transient, pblog_name): Plot transient investigation results.
 - hack_heatmap_plot(**kwargs): Plot a "heatmap" for wave spectrum data - currently hardcoded for avg power of regular waves (12/10/25).
 """
+from turtle import color
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
@@ -997,8 +999,117 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         print(f'ymax: {ymax}')
     fig.suptitle(wrap_title(f"Informed Optimal Damping vs {metric} across Spectrums"), fontsize=16)
     fig.supxlabel('Spectrum used', fontsize =12)
+def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
+    """
+    Given multiple seeds over the same conditions, plot the convergence and calculate some statistics
+
+     -------
+    Parameters:
+        kwargs:
+            - mode: run_avg= running averaged plot
+                    indep = plot all seeds independently
+            - metric: the metric to plot on the y axis
+    ------
+    Returns:
+        None
+    """
+    #Gather kwargs
+    error_removal = kwargs.get('error_removal', True) #default to true if not provided
+    metric = kwargs.get('metric')
     
- 
+    #Gather the data
+    mainDF = mDF_mgmt.access_mainDF()
+    if 'batch_name' in kwargs and 'run_number' not in kwargs:
+        # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
+        batch_keys = [k for k in kwargs if k.startswith('batch_name')]
+    
+        # List to collect individual DataFrames before final concatenation
+        frames_to_concat = [] 
+
+        batch_names = []
+        for key in batch_keys:
+            if key in kwargs:
+                # Filter and copy the relevant data
+                temp_df = mainDF[mainDF['batch_file_name'] == kwargs[key]].copy()
+                frames_to_concat.append(temp_df)
+            
+                # Dynamically set variables like heatmap_data_name, heatmap_data_name2, etc.
+                # Note: Using a dictionary is often cleaner than dynamic variable names
+                suffix = key.replace('batch_name', '')
+                globals()[f'heatmap_data_name{suffix}'] = kwargs[key]
+                batch_names.append(kwargs[key])
+
+        # Efficiently combine all collected data at once
+        if frames_to_concat:
+            function_data = pd.concat(frames_to_concat, ignore_index=True)
+
+    if error_removal is True:
+        function_data = function_data[function_data[' SimReturnCode'] == 0] #remove error
+
+    damping = function_data[' ScaleFactor'].unique()
+    incidents = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
+
+    fig, axes = plt.subplots(len(damping), len(incidents), figsize=(15, min(4 * len(damping), 12)), sharex=True)
+   # Ensure axes is always 2D for easier indexing
+    if len(damping) == 1:
+        axes = axes.reshape(1, -1) if len(incidents) > 1 else np.array([[axes]])
+    elif len(incidents) == 1:
+        axes = axes.reshape(-1, 1)
+    plt.subplots_adjust(hspace=0.4)
+    for j, incident in enumerate(incidents):
+        wave_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == incident]
+        for i, d in enumerate(damping):
+            damping_data = wave_data[wave_data[' ScaleFactor'] == d]
+            damping_data = damping_data.sort_values(by=' Seed', key=lambda col: pd.to_numeric(col, errors='coerce')) #sort by seed value
+            damping_data_metric = damping_data[metric]
+            damping_data_seed = damping_data[' Seed'].copy().reset_index(drop=True)
+            
+            ax = axes[i, j]
+            standard_deviation = damping_data_metric.std()
+            mean = damping_data_metric.mean()
+            expected_error = standard_deviation / np.sqrt(damping_data_seed)
+            if damping_data[' Duration'].unique().shape[0] == 1:
+                length = damping_data[' Duration'].unique()[0]
+            
+            if mode == 'run_avg':
+                # Implementation for running average plot
+                cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
+                ax.scatter(damping_data[' Seed'], cum_mov_avg, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
+                
+                hlines = [mean-1.96*standard_deviation/np.sqrt(len(damping_data_seed)), mean, mean+1.96*standard_deviation/np.sqrt(len(damping_data_seed))]
+                hlinescolors = ['r', 'g', 'r']
+                ax.hlines(y=hlines, xmin=0, xmax=len(damping_data_seed), color=hlinescolors, linestyle='--', label=f'Mean: {mean:.2f} and 95% CI')
+                ax.set_title(f'Running Average Convergence for Damping {d}, {incident}')
+                ax.errorbar(damping_data_seed, cum_mov_avg, yerr=expected_error, fmt='none', ecolor='gray', alpha=0.5, label='Expected Error')
+                ax.legend()
+
+            elif mode == 'tot_time':
+                for k, duration in enumerate(damping_data[' Duration'].unique()):
+                    damping_data_duration = damping_data[damping_data[' Duration'] == duration]
+                    damping_data_metric = damping_data_duration[metric]
+                    standard_deviation = damping_data_metric.std()
+                    mean = damping_data_metric.mean()
+                    cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
+                    total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
+                    total_time = total_time - total_time.index * 50
+                    ax.scatter(total_time, cum_mov_avg, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                ax.legend()
+                
+            elif mode == 'indep':
+                ax.scatter(damping_data[' Seed'], damping_data_metric, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
+
+                hlines = [mean-1.96*standard_deviation/np.sqrt(len(damping_data_seed)), mean, mean+1.96*standard_deviation/np.sqrt(len(damping_data_seed))]
+                hlinescolors = ['r', 'g', 'r']
+                ax.hlines(y=hlines, xmin=0, xmax=len(damping_data_seed), color=hlinescolors, linestyle='--', label=f'Mean: {mean:.2f} and 95% CI')
+                ax.set_title(f'Independent Seeds for Damping {d}, {incident}')
+                ax.legend()
+            else:
+                raise ValueError("Invalid mode argument")
+            ax.set_ylabel(metric)
+        fig.suptitle(wrap_title(f"Convergence Analysis by seed number"), fontsize=16)
+        fig.tight_layout()
+    
+    
 def y_data_to_float(y_data): ##TODO
     """
     Convert y_data to float, handling errors.
@@ -1030,16 +1141,15 @@ def wrap_title(*args):
     return '\n'.join(textwrap.wrap(args[0], width))
 ##################TESTING##################
 def main():
-    out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
+    single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='run_avg', metric='avg_tot_power', error_removal=True)
+    # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='indep', metric='avg_tot_power', error_removal=True)
 
-    spectrum_nums = spectrums.spectrum_list()
-    #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular'], n_cols=3, metric_sv='energy', cumsum=False, reo_df = out)
+    single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='run_avg', metric='avg_tot_power', error_removal=True)
+    # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='indep', metric='avg_tot_power', error_removal=True)
 
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+    single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', mode='tot_time', metric='avg_tot_power', error_removal=True)
+
     plt.show()
-    # print("This was a direct call of visualization.py, which should be used sparingly")
 ##################DONE TESTING##################
 if __name__ == '__main__':
     main() 
