@@ -122,7 +122,7 @@ def analytics_parallel(transient_invesigation=False, **kwargs):
     
     #Start up the parallel processes and run the analytics in parallel, passing the mainDF as read only and analytic wrapper to each process
     with mp.Pool(
-                processes=mp.cpu_count()-2, 
+                processes=min(mp.cpu_count()-2), 
                 #processes=4,
                 initializer=worker_initializer, 
                 initargs=(mainDF_read_data, analytic_wrapper) #MainDF here is read only
@@ -303,17 +303,22 @@ def get_data(**kwargs): #deciding how to access data - batchname and run number,
     else:
         raise ValueError("Must provide either batch_name and run_number, mainDF_index, or pblog_name to access data.")    
 
-    print(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"))
-    run_data_path = glob.glob(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"), recursive=True) #TODO: change TestingData to batches
-    #print(glob.glob(f"Convergence_MCWaves/*", recursive=True))
-    if run_data_path:
-        run_data_path = run_data_path[0]
-        #print (run_data_path) #Debugging
+    #if pblog_name.feather in Filepath: # TODO
+        #run_data = pd.read_feather()
+    if 1 == 3:
+        pass
     else:
-        raise FileNotFoundError(f"{pblog_name} not found")
+        print(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"))
+        run_data_path = glob.glob(os.path.join(r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData", "**", pblog_name, "*"), recursive=True) #TODO: change TestingData to batches
+        #print(glob.glob(f"Convergence_MCWaves/*", recursive=True))
+        if run_data_path:
+            run_data_path = run_data_path[0]
+            #print (run_data_path) #Debugging
+        else:
+            raise FileNotFoundError(f"{pblog_name} not found")
 
-    run_data = pd.read_csv(run_data_path)
-    #run_data = run_data.str.replace("\U00002013", "-").str.replace(r'^-$', '0', regex=True).astype(float) #this line is an attempt to fix dashes converting to objects instead of floats - not working currently
+        run_data = pd.read_csv(run_data_path)
+        #run_data = run_data.str.replace("\U00002013", "-").str.replace(r'^-$', '0', regex=True).astype(float) #this line is an attempt to fix dashes converting to objects instead of floats - not working currently
 
     return run_data
 
@@ -374,7 +379,9 @@ def main():
     #     print(batch_name_idv)
     #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
 
-    run_all_except(analytic=percentile_95_spring_range)
+    #run_all_except(analytic=percentile_95_spring_range)
+
+    analytics(batch_name="batch_results_20260417113624", analytic=avg_tot_power, transient_investigation=False)
     
 ##################DONE TESTING##################
 
