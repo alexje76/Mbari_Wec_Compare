@@ -392,7 +392,7 @@ def main():
 
     #run_all_except(analytic=percentile_95_spring_range)
 
-    analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
+    analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
     
 ##################DONE TESTING##################
 
