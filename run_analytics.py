@@ -14,9 +14,10 @@ import pandas as pd
 import os
 import glob
 import warnings
-import cProfile
+#import cProfilepip
 import pstats
 import multiprocessing as mp
+from tqdm import tqdm
 
 import mainDF_management as mDF_mgmt 
 import visualization #TODO: remove circular import if possible, added in specifcially for transient plot
@@ -194,7 +195,8 @@ def analytics_parallel_process(index, row):
         'index': index,
         'pblog': pblog_name,
         'result': result,
-        'analytic': analytic_name
+        'analytic': analytic_name,
+        'batch_file_name': row['batch_file_name']
     }
 
 
@@ -375,12 +377,71 @@ def run_all_except(analytic, copies=False, **kwargs):
         if batch_name not in batch_keys_ex:
             print(f"Running analytics for batch: {batch_name}")
             analytics_parallel(batch_name=batch_name, analytic=analytic)
+
+def run_all_except2(analytic, copies=False, **kwargs):
+    """Calculates the analytic given for all simulations that were previously run and recorded in the mainDF,
+        Those batches explicity excluded by batch name in kwargs will not be run,
+        Copies changes if there it does so for any copies. 
+
+    Parameters
+    ----------
+    analytic : variable(I think?)
+        _description_
+    copies : bool, optional
+        set to be True if you want copies to be included, by default False
+
+    Warnings:
+        - The copies parameter would not remove past the 10th copy of the same batch. 
+    """    
+    if 'batch_name' in kwargs and 'run_number' not in kwargs:
+        # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
+        batch_keys_ex = [kwargs[k] for k in kwargs if k.startswith('batch_name')]
+    else:
+        batch_keys_ex = []
+        pass #TODO add back in
+
+    mainDF = mDF_mgmt.access_mainDF()
+    batch_names = mainDF['batch_file_name'].unique()
     
+    if not copies: #Removes all batch names that are copies - eg end in _* 
+        batch_names = [batch for batch in batch_names if not any(batch.endswith(f"_{i}") for i in range(1, 10))]
+    else:
+        pass
+     # Filter out excluded batches upfront
+    mainDF = mDF_mgmt.access_mainDF()
+    analytics_data = mainDF[~mainDF['batch_file_name'].isin(batch_keys_ex)]
+    
+    analytic_wrapper = AnalyticWrapper(analytic)
+    
+    # ONE pool for ALL data
+    with mp.Pool(
+        processes=(mp.cpu_count() - 8),
+        initializer=worker_initializer,
+        initargs=(mainDF.copy(), analytic_wrapper)
+    ) as pool:
+        results = pool.starmap(
+            analytics_parallel_process,
+            tqdm(analytics_data.iterrows(), total=len(analytics_data), desc="Running Analytics", unit="run")
+        )
+    
+    # Update all results at once
+    for result in results:
+        mainDF.at[result['index'], result['analytic']] = result['result']
+    
+    mDF_mgmt.write_mainDF(mainDF)
+    
+    # Group and print by batch
+    result_df = pd.DataFrame(results)
+    for batch_name in result_df['batch_file_name'].unique():
+        batch_results = result_df[result_df['batch_file_name'] == batch_name]
+        print(f"\nCompleted {len(batch_results)} runs for batch {batch_name}:")
+        for result in batch_results.to_dict('records'):
+            print(f"  {result['pblog']}: {result['result']:.2f} ({result['analytic']})")
 
 ##################TESTING##################
 def main():
 
-    #run_all_except(analytic=max_spring_range, batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339') 
+    run_all_except2(analytic=max_spring_range, batch_name = "batch_results_20260220105054") 
     #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
@@ -392,7 +453,7 @@ def main():
 
     #run_all_except(analytic=percentile_95_spring_range)
 
-    analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
+    #analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
     
 ##################DONE TESTING##################
 
