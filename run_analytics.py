@@ -407,7 +407,14 @@ def trim(data, trim_amount, window_length):
     start_time = data[' Timestamp (epoch seconds)'].iloc[0] #TODO:Make sure this is not an off by 1 error
     trim_start_time = start_time + trim_amount
 
-    trim_idx_start = data.index[data[' Timestamp (epoch seconds)'] >= trim_start_time][0]
+    # Find rows where timestamp >= trim_start_time
+    matching_indices = data.index[data[' Timestamp (epoch seconds)'] >= trim_start_time]
+
+    # If no matching data (trim_start_time beyond range), trim half the data
+    if len(matching_indices) == 0:
+        trim_idx_start = data.index[len(data) // 2]
+    else:
+        trim_idx_start = matching_indices[0]
 
     if window_length != 0:
         trim_end_time = trim_start_time + int(window_length)

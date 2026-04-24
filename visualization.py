@@ -1155,12 +1155,12 @@ def main():
     #analytics_list = ['max_timestep_power', 'max_1_sec_power', 'max_half_sec_power']
     for analytic in analytics_list:
         
-        damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-        damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+        # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+        # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
         # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='run_avg', metric=analytic, error_removal=True)
         # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='run_avg', metric=analytic, error_removal=True)
 
-        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', mode='tot_time', metric=analytic, error_removal=True)
+        single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', mode='tot_time', metric=analytic, error_removal=True)
 
     
     plt.show()
