@@ -233,11 +233,48 @@ def max_timestep_power(trimmed_data): #TODO change to be consistent naming
     else:
         return max_total_power_instant
 
+def max_1_sec_power(trimmed_data): #TODO change to be consistent naming
+        #Calculate 1s avg power from a run
+    PC_voltage = trimmed_data[' PC Bus Voltage (V)']
+    PC_batt_current = trimmed_data[' PC Battery Curr (A)']
+    PC_load_current = trimmed_data[' PC Load Dump Current (A)']
+
+    combined = pd.DataFrame({
+        'voltage': PC_voltage,
+        'batt_current': PC_batt_current,
+        'load_current': PC_load_current
+    }).dropna()
+
+    avg_total_power_list = (combined['voltage'] * (combined['batt_current'] + combined['load_current']))
+    convolve = np.ones(10)
+    max_1_sec_power_instant = np.max(np.convolve(avg_total_power_list, convolve, mode='valid'))/10
+
+    if not np.isscalar(max_1_sec_power_instant): raise TypeError(f"must be a scalar number, got {type(max_1_sec_power_instant).name}")
+    else:
+        return max_1_sec_power_instant
+def max_half_sec_power(trimmed_data): #TODO change to be consistent naming
+        #Calculate half second avg power from a run
+    PC_voltage = trimmed_data[' PC Bus Voltage (V)']
+    PC_batt_current = trimmed_data[' PC Battery Curr (A)']
+    PC_load_current = trimmed_data[' PC Load Dump Current (A)']
+
+    combined = pd.DataFrame({
+        'voltage': PC_voltage,
+        'batt_current': PC_batt_current,
+        'load_current': PC_load_current
+    }).dropna()
+
+    avg_total_power_list = (combined['voltage'] * (combined['batt_current'] + combined['load_current']))
+    convolve = np.ones(5)
+    max_half_sec_power_instant = np.max(np.convolve(avg_total_power_list, convolve, mode='valid'))/5
+
+    if not np.isscalar(max_half_sec_power_instant): raise TypeError(f"must be a scalar number, got {type(max_half_sec_power_instant).name}")
+    else:
+        return max_half_sec_power_instant
 ######## END POWER FUNCTIONS #############################
 ######## START SPRING FUNCTIONS #############################
 def max_spring_range(trimmed_data):
     max_spring_range = trimmed_data[' SC Range Finder (in)'].max()  #Pandas Series has method .max
-    #print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
 
     if not np.isscalar(max_spring_range): raise TypeError(f"must be a scalar number, got {type(max_spring_range).name}")
     else:
@@ -245,14 +282,112 @@ def max_spring_range(trimmed_data):
 
 def percentile_95_spring_range(trimmed_data):
     percentile_95_spring_range = trimmed_data[' SC Range Finder (in)'].quantile(0.95)
-    #print(f'max spring range is {max_spring_range} at index {np.argmax(trimmed_data[" SC Range Finder (in)"])}') #Debugging
 
     if not np.isscalar(percentile_95_spring_range): raise TypeError(f"must be a scalar number, got {type(percentile_95_spring_range).name}")
     else:
         return percentile_95_spring_range
-######## END SPRING FUNCTIONS #############################s
+
+def min_spring_range(trimmed_data):
+    min_spring_range = trimmed_data[' SC Range Finder (in)'].min()  #Pandas Series has method .min
+
+    if not np.isscalar(min_spring_range): raise TypeError(f"must be a scalar number, got {type(min_spring_range).name}")
+    else:
+        return min_spring_range
+
+def percentile_5_spring_range(trimmed_data):
+    percentile_5_spring_range = trimmed_data[' SC Range Finder (in)'].quantile(0.05)
+
+    if not np.isscalar(percentile_5_spring_range): raise TypeError(f"must be a scalar number, got {type(percentile_5_spring_range).name}")
+    else:
+        return percentile_5_spring_range
+
+def range_spring_range(trimmed_data):
+    range_spring_range = trimmed_data[' SC Range Finder (in)'].max() - trimmed_data[' SC Range Finder (in)'].min() 
+
+    if not np.isscalar(range_spring_range): raise TypeError(f"must be a scalar number, got {type(range_spring_range).name}")
+    else:
+        return range_spring_range
+    
+def range_percentile_95_spring_range(trimmed_data):
+    range_percentile_95_spring_range = trimmed_data[' SC Range Finder (in)'].quantile(0.95) - trimmed_data[' SC Range Finder (in)'].quantile(0.05)
+
+    if not np.isscalar(range_percentile_95_spring_range): raise TypeError(f"must be a scalar number, got {type(range_percentile_95_spring_range).name}")
+    else:
+        return range_percentile_95_spring_range
+######## END SPRING FUNCTIONS #############################
+
+####### START LOADING FUNCTIONS ###########################
+def max_PTO_load(trimmed_data):
+    max_PTO_load = trimmed_data['  SC Load Cell (lbs)'].apply(pd.to_numeric, errors='coerce').max()  #Pandas Series has method .max
+
+    if not np.isscalar(max_PTO_load): raise TypeError(f"must be a scalar number, got {type(max_PTO_load).name}")
+    else:
+        return max_PTO_load
+    
+def percentile_95_PTO_load(trimmed_data):
+    percentile_95_PTO_load = trimmed_data['  SC Load Cell (lbs)'].apply(pd.to_numeric, errors='coerce').quantile(0.95)
+
+    if not np.isscalar(percentile_95_PTO_load): raise TypeError(f"must be a scalar number, got {type(percentile_95_PTO_load).name}")
+    else:
+        return percentile_95_PTO_load
+    
+def max_diff_press(trimmed_data):
+    max_diff_press = trimmed_data[' PC Diff PSI'].apply(pd.to_numeric, errors='coerce').dropna().max()  #Pandas Series has method .max
+
+    if not np.isscalar(max_diff_press): raise TypeError(f"must be a scalar number, got {type(max_diff_press).name}")
+    else:
+        return max_diff_press
+    
+def percentile_95_diff_press(trimmed_data):
+    percentile_95_diff_press = trimmed_data[' PC Diff PSI'].apply(pd.to_numeric, errors='coerce').quantile(0.95)
+
+    if not np.isscalar(percentile_95_diff_press): raise TypeError(f"must be a scalar number, got {type(percentile_95_diff_press).name}")
+    else:
+        return percentile_95_diff_press
+    
+def max_RPM(trimmed_data):
+    max_RPM = trimmed_data[' PC RPM'].apply(pd.to_numeric, errors='coerce').dropna().max()  #Pandas Series has method .max
+
+    if not np.isscalar(max_RPM): raise TypeError(f"must be a scalar number, got {type(max_RPM).name}")
+    else:
+        return max_RPM
+    
+def percentile_95_RPM(trimmed_data):
+    percentile_95_RPM = trimmed_data[' PC RPM'].apply(pd.to_numeric, errors='coerce').quantile(0.95)
+
+    if not np.isscalar(percentile_95_RPM): raise TypeError(f"must be a scalar number, got {type(percentile_95_RPM).name}")
+    else:
+        return percentile_95_RPM
+    
+def min_RPM(trimmed_data):
+    min_RPM = trimmed_data[' PC RPM'].apply(pd.to_numeric, errors='coerce').dropna().min()  #Pandas Series has method .max
+
+    if not np.isscalar(min_RPM): raise TypeError(f"must be a scalar number, got {type(min_RPM).name}")
+    else:
+        return min_RPM
+    
+def percentile_5_RPM(trimmed_data):
+    percentile_5_RPM = trimmed_data[' PC RPM'].apply(pd.to_numeric, errors='coerce').quantile(0.05)
+
+    if not np.isscalar(percentile_5_RPM): raise TypeError(f"must be a scalar number, got {type(percentile_5_RPM).name}")
+    else:
+        return percentile_5_RPM
+####### END LOADING FUNCTIONS ###########################
 
 ####### START UNGROUPED FUNCTIONS ###########################
+# def max_HC_accel_z(trimmed_data): #TODO: " TF Accel 2"
+#     max_HC_accel_z = trimmed_data[' HC Accel Z (g)'].apply(pd.to_numeric, errors='coerce').dropna().max()  #Pandas Series has method .max
+
+#     if not np.isscalar(max_HC_accel_z): raise TypeError(f"must be a scalar number, got {type(max_HC_accel_z).name}")
+#     else:
+#         return max_HC_accel_z
+
+# def percentile_95_HC_accel_z(trimmed_data):
+#     percentile_95_HC_accel_z = trimmed_data[' HC Accel Z (g)'].apply(pd.to_numeric, errors='coerce').dropna().quantile(0.95)  #Pandas Series has method .max
+
+#     if not np.isscalar(percentile_95_HC_accel_z): raise TypeError(f"must be a scalar number, got {type(percentile_95_HC_accel_z).name}")
+#     else:
+#         return percentile_95_HC_accel_z
 # ##Not doing what I hoped atm #TODO
 # def sim_run_time(run_data):  
 #     start_time = run_data[' Timestamp (epoch seconds)'].iloc[0]
@@ -343,7 +478,7 @@ def batch_names(**kwargs):
     else:
         raise ValueError("Must provide batch_name(s) without run_number to get batch names.")
     
-def run_all_except(analytic, copies=False, **kwargs):
+def run_all_except(analytic, copies=False, **kwargs): #likely deprecated, re-opens pool far too often #TODO
     """Calculates the analytic given for all simulations that were previously run and recorded in the mainDF,
         Those batches explicity excluded by batch name in kwargs will not be run,
         Copies changes if there it does so for any copies. 
@@ -438,10 +573,30 @@ def run_all_except2(analytic, copies=False, **kwargs):
         for result in batch_results.to_dict('records'):
             print(f"  {result['pblog']}: {result['result']:.2f} ({result['analytic']})")
 
+def analytics_list():
+    """
+    Returns a list of all of the analytics
+    ---------
+    Parameters:
+        None
+    ---------
+    Returns:
+        analytics_list - lists the analytics functions that have been implemented
+        date - lets know what date the list was last updated
+    ---------
+    Warnings:
+        This requires manual updating of the list, so is not foolproof and should be validated against the set of interest
+    """
+    analytics_list = ['avg_tot_power', 'max_timestep_power', 'max_1_sec_power', 'max_half_sec_power', 
+                      'max_spring_range', 'percentile_95_spring_range', 'min_spring_range', 'percentile_5_spring_range', 'range_spring_range', 'range_percentile_95_spring_range', 
+                      'max_PTO_load', 'percentile_95_PTO_load',  
+                      'max_RPM', 'percentile_95_RPM', 'min_RPM', 'percentile_5_RPM']
+    date = "2024-06-10"
+    return analytics_list, date
 ##################TESTING##################
 def main():
 
-    run_all_except2(analytic=max_spring_range, batch_name = "batch_results_20260220105054") 
+    run_all_except2(analytic=min_RPM, batch_name = "batch_results_20260220105054") 
     #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
