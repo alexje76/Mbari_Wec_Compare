@@ -1141,13 +1141,15 @@ def wrap_title(*args):
     return '\n'.join(textwrap.wrap(args[0], width))
 ##################TESTING##################
 def main():
-    single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='run_avg', metric='avg_tot_power', error_removal=True)
-    # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='indep', metric='avg_tot_power', error_removal=True)
+    analytics_list, date = run_analytics.analytics_list()
+    print(analytics_list, date)
+    single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2='batch_results_20260421161054', mode='run_avg', metric='avg_tot_power', error_removal=True)
+    # # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='indep', metric='avg_tot_power', error_removal=True)
 
-    single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='run_avg', metric='avg_tot_power', error_removal=True)
-    # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='indep', metric='avg_tot_power', error_removal=True)
+    single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624',  batch_name2='batch_results_20260421161054', mode='run_avg', metric='max_PTO_load', error_removal=True)
+    # # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='indep', metric='avg_tot_power', error_removal=True)
 
-    single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', mode='tot_time', metric='avg_tot_power', error_removal=True)
+    # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', batch_name3='batch_results_20260421161054', mode='tot_time', metric='avg_tot_power', error_removal=True)
 
     plt.show()
 ##################DONE TESTING##################
