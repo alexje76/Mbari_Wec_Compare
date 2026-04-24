@@ -69,10 +69,11 @@ def analytics(**kwargs):
                 print('trimming in greater than 0') #Debugging
                 pass
             else:
-                trim_amount = (run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
+                trim_amount = 150
+                #(run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
                 print('trimming in the else - is a #todo') #Debugging
         else:
-            trim_amount = 0  # seconds
+            trim_amount = 150  # seconds
             warnings.warn(f"No trim amount specified for {pblog_name}. Proceeding without trimming.")
 
         if 'window_length' in kwargs:
@@ -174,13 +175,13 @@ def analytics_parallel_process(index, row):
     if row['trim']:
         trim_amount = row['trim']
         if trim_amount > 0:
-            print('trimming in greater than 0') #Debugging
             pass
         else:
-            trim_amount = (run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
+            trim_amount = 150
+            #(run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
             #print('trimming in the else - is a #todo') #Debugging
     else:
-        trim_amount = 0  # seconds
+        trim_amount = 150  # seconds
         warnings.warn(f"No trim amount specified for {pblog_name}. Proceeding without trimming.")
 
     window_length = 0
@@ -593,10 +594,48 @@ def analytics_list():
                       'max_RPM', 'percentile_95_RPM', 'min_RPM', 'percentile_5_RPM']
     date = "2024-06-10"
     return analytics_list, date
+
+def run_batch_all_analytics(batch_name, **kwargs):
+    """_summary_
+
+    Parameters:
+        Transient investigation: bool, default False
+    """
+    batch_name_here = batch_name
+    transient_investigation_here = kwargs.get('transient_investigation', False)
+
+    analytics_list_res, _ = analytics_list()
+    for analytic_here in analytics_list_res:
+        try:
+            # Check if the function exists in the current module's globals
+            if analytic_here not in globals():
+                raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+            
+            analytic_func = globals()[analytic_here]
+        except AttributeError as e:
+            print(f"Error: {e}. Skipping...")
+            continue
+        
+        analytics(batch_name=batch_name_here, analytic=analytic_func, transient_investigation=transient_investigation_here)
+
 ##################TESTING##################
 def main():
+    analytics_list_res, _ = analytics_list()
+    for analytic_here in analytics_list_res:
+        try:
+            # Check if the function exists in the current module's globals
+            if analytic_here not in globals():
+                raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+            
+            analytic_func = globals()[analytic_here]
+        except AttributeError as e:
+            print(f"Error: {e}. Skipping...")
+            continue
+        run_all_except2(analytic=analytic_func, batch_name = "batch_results_20260220105054")
 
-    run_all_except2(analytic=min_RPM, batch_name = "batch_results_20260220105054") 
+    #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
+    #run_batch_all_analytics(batch_name="batch_results_20260421161054")
+    #run_all_except2(analytic=min_RPM, batch_name = "batch_results_20260220105054") 
     #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
     # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)

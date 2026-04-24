@@ -1076,9 +1076,17 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
                 cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
                 ax.scatter(damping_data[' Seed'], cum_mov_avg, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
                 
+                #% CI Hlines
                 hlines = [mean-1.96*standard_deviation/np.sqrt(len(damping_data_seed)), mean, mean+1.96*standard_deviation/np.sqrt(len(damping_data_seed))]
                 hlinescolors = ['r', 'g', 'r']
                 ax.hlines(y=hlines, xmin=0, xmax=len(damping_data_seed), color=hlinescolors, linestyle='--', label=f'Mean: {mean:.2f} and 95% CI')
+
+                #% difference Hlines
+                hlines2 = [0.95*mean, 1.05*mean]
+                hlinescolors2 = ['m', 'm']
+                ax.hlines(y=hlines2, xmin=0, xmax=len(damping_data_seed), color=hlinescolors2, linestyle='--', label=f'5% Difference')
+
+
                 ax.set_title(f'Running Average Convergence for Damping {d}, {incident}')
                 ax.errorbar(damping_data_seed, cum_mov_avg, yerr=expected_error, fmt='none', ecolor='gray', alpha=0.5, label='Expected Error')
                 ax.legend()
@@ -1091,7 +1099,7 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
                     mean = damping_data_metric.mean()
                     cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
                     total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
-                    total_time = total_time - total_time.index * 50
+                    total_time = total_time - total_time.index * 0.1*duration
                     ax.scatter(total_time, cum_mov_avg, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
                 ax.legend()
                 
@@ -1143,14 +1151,18 @@ def wrap_title(*args):
 def main():
     analytics_list, date = run_analytics.analytics_list()
     print(analytics_list, date)
-    single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2='batch_results_20260421161054', mode='run_avg', metric='avg_tot_power', error_removal=True)
-    # # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='indep', metric='avg_tot_power', error_removal=True)
+    # analytics_list = ['avg_tot_power']
+    #analytics_list = ['max_timestep_power', 'max_1_sec_power', 'max_half_sec_power']
+    for analytic in analytics_list:
+        
+        damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+        damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='run_avg', metric=analytic, error_removal=True)
+        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='run_avg', metric=analytic, error_removal=True)
 
-    single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624',  batch_name2='batch_results_20260421161054', mode='run_avg', metric='max_PTO_load', error_removal=True)
-    # # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='indep', metric='avg_tot_power', error_removal=True)
+        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', mode='tot_time', metric=analytic, error_removal=True)
 
-    # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', batch_name3='batch_results_20260421161054', mode='tot_time', metric='avg_tot_power', error_removal=True)
-
+    
     plt.show()
 ##################DONE TESTING##################
 if __name__ == '__main__':
