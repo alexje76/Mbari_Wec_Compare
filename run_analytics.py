@@ -595,13 +595,37 @@ def analytics_list():
     Warnings:
         This requires manual updating of the list, so is not foolproof and should be validated against the set of interest
     """
-    analytics_list = ['avg_tot_power', 'max_timestep_power', 'max_1_sec_power', 'max_half_sec_power', 
-                      'max_spring_range', 'percentile_95_spring_range', 'min_spring_range', 'percentile_5_spring_range', 'range_spring_range', 'range_percentile_95_spring_range', 
-                      'max_PTO_load', 'percentile_95_PTO_load',  
-                      'max_RPM', 'percentile_95_RPM', 'min_RPM', 'percentile_5_RPM']
+    analytics_list = list(analytic_handlers().keys())
     date = "2024-06-10"
     return analytics_list, date
+def analytic_handlers():
+    """
+    SHOULD BE KEPT AS THE SINGLE SOURCE OF ANALYTICS
+    Returns a dictionary of analytic names corresponding to if the analytic should be entirely averaged or not.
 
+    ---------
+    Returns:
+        analytic_compare_dict: dict, keys are analytic names, values are bools indicating whether to average the analytic for comparison or not.
+    """
+    analytic_compare_dict = {
+        'avg_tot_power': 'avg',
+        'max_timestep_power': 'max',
+        'max_1_sec_power': 'max',
+        'max_half_sec_power': 'max',
+        'max_spring_range': 'max',
+        'percentile_95_spring_range': 'summary',
+        'min_spring_range': 'min',
+        'percentile_5_spring_range': 'summary',
+        'range_spring_range': 'max',
+        'range_percentile_95_spring_range':'summary',
+        'max_PTO_load': 'max',
+        'percentile_95_PTO_load': 'summary',
+        'max_RPM': 'max',
+        'percentile_95_RPM': 'summary',
+        'min_RPM': 'min',
+        'percentile_5_RPM': 'summary'
+    }
+    return analytic_compare_dict
 def run_batch_all_analytics(batch_name, **kwargs):
     """_summary_
 

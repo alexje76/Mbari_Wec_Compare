@@ -1016,7 +1016,10 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
     #Gather kwargs
     error_removal = kwargs.get('error_removal', True) #default to true if not provided
     metric = kwargs.get('metric')
-    
+    #Gather if the metric should be cumavged or simply max/min
+    analytic_compare_dict = run_analytics.analytic_handlers()
+    analytic_type = analytic_compare_dict[metric]
+
     #Gather the data
     mainDF = mDF_mgmt.access_mainDF()
     if 'batch_name' in kwargs and 'run_number' not in kwargs:
@@ -1072,36 +1075,100 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
                 length = damping_data[' Duration'].unique()[0]
             
             if mode == 'run_avg':
-                # Implementation for running average plot
-                cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
-                ax.scatter(damping_data[' Seed'], cum_mov_avg, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
-                
-                #% CI Hlines
-                hlines = [mean-1.96*standard_deviation/np.sqrt(len(damping_data_seed)), mean, mean+1.96*standard_deviation/np.sqrt(len(damping_data_seed))]
-                hlinescolors = ['r', 'g', 'r']
-                ax.hlines(y=hlines, xmin=0, xmax=len(damping_data_seed), color=hlinescolors, linestyle='--', label=f'Mean: {mean:.2f} and 95% CI')
+                if analytic_type == 'avg':
+                    # Implementation for running average plot
+                    cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
+                    ax.scatter(damping_data[' Seed'], cum_mov_avg, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
+                    
+                    #% CI Hlines
+                    hlines = [mean-1.96*standard_deviation/np.sqrt(len(damping_data_seed)), mean, mean+1.96*standard_deviation/np.sqrt(len(damping_data_seed))]
+                    hlinescolors = ['r', 'g', 'r']
+                    ax.hlines(y=hlines, xmin=0, xmax=len(damping_data_seed), color=hlinescolors, linestyle='--', label=f'Mean: {mean:.2f} and 95% CI')
 
-                #% difference Hlines
-                hlines2 = [0.95*mean, 1.05*mean]
-                hlinescolors2 = ['m', 'm']
-                ax.hlines(y=hlines2, xmin=0, xmax=len(damping_data_seed), color=hlinescolors2, linestyle='--', label=f'5% Difference')
+                    #% difference Hlines
+                    hlines2 = [0.95*mean, 1.05*mean]
+                    hlinescolors2 = ['m', 'm']
+                    ax.hlines(y=hlines2, xmin=0, xmax=len(damping_data_seed), color=hlinescolors2, linestyle='--', label=f'5% Difference')
 
 
-                ax.set_title(f'Running Average Convergence for Damping {d}, {incident}')
-                ax.errorbar(damping_data_seed, cum_mov_avg, yerr=expected_error, fmt='none', ecolor='gray', alpha=0.5, label='Expected Error')
-                ax.legend()
+                    ax.set_title(f'Running Average Convergence for Damping {d}, {incident}')
+                    ax.errorbar(damping_data_seed, cum_mov_avg, yerr=expected_error, fmt='none', ecolor='gray', alpha=0.5, label='Expected Error')
+                    ax.legend()
+                elif analytic_type == 'max':
+                    extr_mov = np.maximum.accumulate(damping_data_metric)
+                    ax.scatter(damping_data[' Seed'], extr_mov, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
+                    ax.set_title(f'Running Max Convergence for Damping {d}, {incident}')
+                elif analytic_type == 'min':
+                    extr_mov = np.minimum.accumulate(damping_data_metric)
+                    ax.scatter(damping_data[' Seed'], extr_mov, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
+                    ax.set_title(f'Running Max Convergence for Damping {d}, {incident}')
+                elif analytic_type == 'summary':
+                    print('Warning this metric:{analytic_type}, is a summary analytic, and needs to be treated as so, added is a temp plot assuming it behaves like an absolute analytic')
+                    for k, duration in enumerate(damping_data[' Duration'].unique()):
+                        damping_data_duration = damping_data[damping_data[' Duration'] == duration]
+                        damping_data_metric = damping_data_duration[metric]
+                        standard_deviation = damping_data_metric.std()
+                        mean = damping_data_metric.mean()
+
+                        extr_mov = np.minimum.accumulate(damping_data_metric)
+                        total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
+                        total_time = total_time - total_time.index * 0.1*duration
+                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                    ax.legend()
+                else:
+                    raise ValueError('Invalid analytic_type. Must be one of the specifified, or perhaps not in run_analtics list')
 
             elif mode == 'tot_time':
-                for k, duration in enumerate(damping_data[' Duration'].unique()):
-                    damping_data_duration = damping_data[damping_data[' Duration'] == duration]
-                    damping_data_metric = damping_data_duration[metric]
-                    standard_deviation = damping_data_metric.std()
-                    mean = damping_data_metric.mean()
-                    cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
-                    total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
-                    total_time = total_time - total_time.index * 0.1*duration
-                    ax.scatter(total_time, cum_mov_avg, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
-                ax.legend()
+                if analytic_type == 'avg':
+                    for k, duration in enumerate(damping_data[' Duration'].unique()):
+                        damping_data_duration = damping_data[damping_data[' Duration'] == duration]
+                        damping_data_metric = damping_data_duration[metric]
+                        standard_deviation = damping_data_metric.std()
+                        mean = damping_data_metric.mean()
+                        cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
+                        total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
+                        total_time = total_time - total_time.index * 0.1*duration
+                        ax.scatter(total_time, cum_mov_avg, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                    ax.legend()
+                elif analytic_type == 'max':
+                    for k, duration in enumerate(damping_data[' Duration'].unique()):
+                        damping_data_duration = damping_data[damping_data[' Duration'] == duration]
+                        damping_data_metric = damping_data_duration[metric]
+                        standard_deviation = damping_data_metric.std()
+                        mean = damping_data_metric.mean()
+
+                        extr_mov = np.maximum.accumulate(damping_data_metric)
+                        total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
+                        total_time = total_time - total_time.index * 0.1*duration
+                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                    ax.legend()
+                elif analytic_type == 'min':
+                    for k, duration in enumerate(damping_data[' Duration'].unique()):
+                        damping_data_duration = damping_data[damping_data[' Duration'] == duration]
+                        damping_data_metric = damping_data_duration[metric]
+                        standard_deviation = damping_data_metric.std()
+                        mean = damping_data_metric.mean()
+
+                        extr_mov = np.minimum.accumulate(damping_data_metric)
+                        total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
+                        total_time = total_time - total_time.index * 0.1*duration
+                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                    ax.legend()
+                elif analytic_type == 'summary':
+                    print('Warning this metric:{analytic_type}, is a summary analytic, and needs to be treated as so, added is a temp plot assuming it behaves like an absolute analytic')
+                    for k, duration in enumerate(damping_data[' Duration'].unique()):
+                        damping_data_duration = damping_data[damping_data[' Duration'] == duration]
+                        damping_data_metric = damping_data_duration[metric]
+                        standard_deviation = damping_data_metric.std()
+                        mean = damping_data_metric.mean()
+
+                        extr_mov = np.minimum.accumulate(damping_data_metric)
+                        total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
+                        total_time = total_time - total_time.index * 0.1*duration
+                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                    ax.legend()
+                else:
+                    raise ValueError('Invalid analytic_type. Must be one of the specifified, or perhaps not in run_analtics list')
                 
             elif mode == 'indep':
                 ax.scatter(damping_data[' Seed'], damping_data_metric, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
@@ -1116,8 +1183,8 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
             ax.set_ylabel(metric)
         fig.suptitle(wrap_title(f"Convergence Analysis by seed number"), fontsize=16)
         fig.tight_layout()
-    
-    
+
+
 def y_data_to_float(y_data): ##TODO
     """
     Convert y_data to float, handling errors.
