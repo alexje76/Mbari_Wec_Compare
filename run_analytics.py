@@ -523,7 +523,7 @@ def run_all_except(analytic, copies=False, **kwargs): #likely deprecated, re-ope
             print(f"Running analytics for batch: {batch_name}")
             analytics_parallel(batch_name=batch_name, analytic=analytic)
 
-def run_all_except2(analytic, copies=False, **kwargs):
+def run_all_except2(analytic, copies=False, include=False, **kwargs):
     """Calculates the analytic given for all simulations that were previously run and recorded in the mainDF,
         Those batches explicity excluded by batch name in kwargs will not be run,
         Copies changes if there it does so for any copies. 
@@ -540,9 +540,9 @@ def run_all_except2(analytic, copies=False, **kwargs):
     """    
     if 'batch_name' in kwargs and 'run_number' not in kwargs:
         # Define keys to check in order (batch_name, batch_name2, batch_name3, etc.)
-        batch_keys_ex = [kwargs[k] for k in kwargs if k.startswith('batch_name')]
+        batch_keys = [kwargs[k] for k in kwargs if k.startswith('batch_name')]
     else:
-        batch_keys_ex = []
+        batch_keys = []
         pass #TODO add back in
 
     mainDF = mDF_mgmt.access_mainDF()
@@ -554,8 +554,13 @@ def run_all_except2(analytic, copies=False, **kwargs):
         pass
      # Filter out excluded batches upfront
     mainDF = mDF_mgmt.access_mainDF()
-    analytics_data = mainDF[~mainDF['batch_file_name'].isin(batch_keys_ex)]
-    
+    if include:
+        # Only include listed batches
+        analytics_data = mainDF[mainDF['batch_file_name'].isin(batch_keys)]
+    else:
+        # Exclude listed batches (original functionality)
+        analytics_data = mainDF[~mainDF['batch_file_name'].isin(batch_keys)]
+        
     analytic_wrapper = AnalyticWrapper(analytic)
     
     # ONE pool for ALL data
@@ -664,24 +669,17 @@ def main():
     #     except AttributeError as e:
     #         print(f"Error: {e}. Skipping...")
     #         continue
-    #     run_all_except2(analytic=analytic_func, batch_name = "batch_results_20260220105054")
+    #     run_all_except2(analytic=analytic_func, include=True, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054")  #, batch_name4 = "batch_results_20260424143751"
 
     # #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
-    # #run_batch_all_analytics(batch_name="batch_results_20260421161054")
-    # #run_all_except2(analytic=min_RPM, batch_name = "batch_results_20260220105054") 
-    # #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
-    # # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
-    # # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
 
-    # #cProfile.run('analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)') 
-    # # for batch_name_idv in batch_names(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339'):
-    # #     print(batch_name_idv)
-    # #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
+    batch_list = ["batch_results_20260424143751", "batch_results_20260427134111"]
+    for batch in batch_list:
+        run_batch_all_analytics(batch_name=batch)
+    
 
-    # #run_all_except(analytic=percentile_95_spring_range)
 
-    # #analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
-    pass
+
 ##################DONE TESTING##################
 
 if __name__ == '__main__':

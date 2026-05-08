@@ -1000,14 +1000,14 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         print(f'ymax: {ymax}')
     fig.suptitle(wrap_title(f"Informed Optimal Damping vs {metric} across Spectrums"), fontsize=16)
     fig.supxlabel('Spectrum used', fontsize =12)
-def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
+def single_seeds_convergence_analytics(mode='running', **kwargs):
     """
     Given multiple seeds over the same conditions, plot the convergence and calculate some statistics
 
      -------
     Parameters:
         kwargs:
-            - mode: run_avg= running averaged plot
+            - mode: running= running averaged plot
                     indep = plot all seeds independently
             - metric: the metric to plot on the y axis
     ------
@@ -1075,7 +1075,7 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
             if damping_data[' Duration'].unique().shape[0] == 1:
                 length = damping_data[' Duration'].unique()[0]
             
-            if mode == 'run_avg':
+            if mode == 'running':
                 if analytic_type == 'avg':
                     # Implementation for running average plot
                     cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
@@ -1098,10 +1098,14 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
                 elif analytic_type == 'max':
                     extr_mov = np.maximum.accumulate(damping_data_metric)
                     ax.scatter(damping_data[' Seed'], extr_mov, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
+                    upbounds = extr_mov.max()*0.95
+                    ax.hlines(y=upbounds, xmin=0, xmax=total_time.iloc[-1], colors=ax.get_children()[0].get_facecolors()[0], linestyle='--', label=f'5% Difference duration: {duration}')
                     ax.set_title(f'Running Max Convergence for Damping {d}, {incident}')
                 elif analytic_type == 'min':
                     extr_mov = np.minimum.accumulate(damping_data_metric)
                     ax.scatter(damping_data[' Seed'], extr_mov, marker='o', label=f'Duration = {length}, std: {standard_deviation:.2f}')
+                    downbounds = extr_mov.min()*1.05
+                    ax.hlines(y=downbounds, xmin=0, xmax=total_time.iloc[-1], colors=ax.get_children()[0].get_facecolors()[0], linestyle='--', label=f'5% Difference duration: {duration}')
                     ax.set_title(f'Running Max Convergence for Damping {d}, {incident}')
                 elif analytic_type == 'summary':
                     print('Warning this metric:{analytic_type}, is a summary analytic, and needs to be treated as so, added is a temp plot assuming it behaves like an absolute analytic')
@@ -1123,16 +1127,20 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
                 if analytic_type == 'avg':
                     for k, duration in enumerate(damping_data[' Duration'].unique()):
                         damping_data_duration = damping_data[damping_data[' Duration'] == duration]
+
                         damping_data_metric = damping_data_duration[metric]
                         standard_deviation = damping_data_metric.std()
                         mean = damping_data_metric.mean()
                         cum_mov_avg = np.cumsum(damping_data_metric) / np.arange(1, len(damping_data_metric) + 1)
                         total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
-                        total_time = total_time - total_time.index * 0.1*duration
+                        total_time = total_time - total_time.index * (duration-150) #HARDCODED 150s AND SEE OTHERS IN IF STATEMENT
                         ax.scatter(total_time, cum_mov_avg, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
                     ax.legend()
                 elif analytic_type == 'max':
+                    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
                     for k, duration in enumerate(damping_data[' Duration'].unique()):
+                        current_color = color_cycle[k % len(color_cycle)]
+
                         damping_data_duration = damping_data[damping_data[' Duration'] == duration]
                         damping_data_metric = damping_data_duration[metric]
                         standard_deviation = damping_data_metric.std()
@@ -1140,11 +1148,16 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
 
                         extr_mov = np.maximum.accumulate(damping_data_metric)
                         total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
-                        total_time = total_time - total_time.index * 0.1*duration
-                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                        total_time = total_time - total_time.index * (duration-150) #HARDCODED 150s AND SEE OTHERS IN IF STATEMENT
+                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}', color = current_color)
+                        upbounds = extr_mov.max()*0.95
+                        ax.hlines(y=upbounds, xmin=0, xmax=total_time.iloc[-1], color = current_color, linestyle='--', label=f'5% Difference duration: {duration}')
                     ax.legend()
                 elif analytic_type == 'min':
+                    color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
                     for k, duration in enumerate(damping_data[' Duration'].unique()):
+                        current_color = color_cycle[k % len(color_cycle)]
+
                         damping_data_duration = damping_data[damping_data[' Duration'] == duration]
                         damping_data_metric = damping_data_duration[metric]
                         standard_deviation = damping_data_metric.std()
@@ -1152,8 +1165,10 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
 
                         extr_mov = np.minimum.accumulate(damping_data_metric)
                         total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
-                        total_time = total_time - total_time.index * 0.1*duration
-                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
+                        total_time = total_time - total_time.index * (duration-150) #HARDCODED 150s AND SEE OTHERS IN IF STATEMENT
+                        ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}', color = current_color)
+                        downbounds = extr_mov.min()*1.05
+                        ax.hlines(y=downbounds, xmin=0, xmax=total_time.iloc[-1], colors=current_color, linestyle='--', label=f'5% Difference duration: {duration}')
                     ax.legend()
                 elif analytic_type == 'summary':
                     print('Warning this metric:{analytic_type}, is a summary analytic, and needs to be treated as so, added is a temp plot assuming it behaves like an absolute analytic')
@@ -1165,7 +1180,7 @@ def single_seeds_convergence_analytics(mode='run_avg', **kwargs):
 
                         extr_mov = np.minimum.accumulate(damping_data_metric)
                         total_time = damping_data_duration[' Duration'].cumsum().reset_index(drop=True)
-                        total_time = total_time - total_time.index * 0.1*duration
+                        total_time = total_time - total_time.index * (duration-150) #HARDCODED 150s AND SEE OTHERS IN IF STATEMENT
                         ax.scatter(total_time, extr_mov, marker='o', label=f'Duration = {duration}, std: {standard_deviation:.2f}')
                     ax.legend()
                 else:
@@ -1225,10 +1240,11 @@ def main():
         
         # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
         # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric=analytic, cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
-        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='run_avg', metric=analytic, error_removal=True)
-        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='run_avg', metric=analytic, error_removal=True)
+        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', mode='running', metric=analytic, error_removal=True)
+        # single_seeds_convergence_analytics(batch_name = 'batch_results_20260417113624', mode='running', metric=analytic, error_removal=True)
 
-        single_seeds_convergence_analytics(batch_name = 'batch_results_20260416144652', batch_name2 ='batch_results_20260417113624', mode='tot_time', metric=analytic, error_removal=True)
+        single_seeds_convergence_analytics(batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4="batch_results_20260424143751", batch_name5="batch_results_20260427134111", mode='running', metric=analytic, error_removal=True)
+
 
     
     plt.show()

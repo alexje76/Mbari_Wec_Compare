@@ -30,6 +30,39 @@ def profiling_test():
     
     # Print the top 45 statistics
     stats.print_stats(45)
+def running_analytics5_7():
+    """ 
+    This was from may 7th, the analytics running code from before. This was pre realization of the maximum values needing to be non-averaged by max of the run.
+    """
+    pass
+        # analytics_list_res, _ = analytics_list()
+    # for analytic_here in analytics_list_res:
+    #     try:
+    #         # Check if the function exists in the current module's globals
+    #         if analytic_here not in globals():
+    #             raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+            
+    #         analytic_func = globals()[analytic_here]
+    #     except AttributeError as e:
+    #         print(f"Error: {e}. Skipping...")
+    #         continue
+    #     run_all_except2(analytic=analytic_func, batch_name = "batch_results_20260220105054")
+
+    # #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
+    # #run_batch_all_analytics(batch_name="batch_results_20260421161054")
+    # #run_all_except2(analytic=min_RPM, batch_name = "batch_results_20260220105054") 
+    # #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
+    # # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
+    # # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
+
+    # #cProfile.run('analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)') 
+    # # for batch_name_idv in batch_names(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339'):
+    # #     print(batch_name_idv)
+    # #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
+
+    # #run_all_except(analytic=percentile_95_spring_range)
+
+    # #analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
 def heatmap_spectrums4_21():
     out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
 
