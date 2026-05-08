@@ -523,7 +523,7 @@ def run_all_except(analytic, copies=False, **kwargs): #likely deprecated, re-ope
             print(f"Running analytics for batch: {batch_name}")
             analytics_parallel(batch_name=batch_name, analytic=analytic)
 
-def run_all_except2(analytic, copies=False, include=False, **kwargs):
+def run_all_except2(analytic, copies=False, include=False, coresub=8, **kwargs):
     """Calculates the analytic given for all simulations that were previously run and recorded in the mainDF,
         Those batches explicity excluded by batch name in kwargs will not be run,
         Copies changes if there it does so for any copies. 
@@ -565,7 +565,7 @@ def run_all_except2(analytic, copies=False, include=False, **kwargs):
     
     # ONE pool for ALL data
     with mp.Pool(
-        processes=(mp.cpu_count() - 8),
+        processes=(mp.cpu_count() - coresub),
         initializer=worker_initializer,
         initargs=(mainDF.copy(), analytic_wrapper)
     ) as pool:
@@ -658,24 +658,24 @@ def run_batch_all_analytics(batch_name, **kwargs):
 
 ##################TESTING##################
 def main():
-    # analytics_list_res, _ = analytics_list()
-    # for analytic_here in analytics_list_res:
-    #     try:
-    #         # Check if the function exists in the current module's globals
-    #         if analytic_here not in globals():
-    #             raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+    analytics_list_res, _ = analytics_list()
+    for analytic_here in analytics_list_res:
+        try:
+            # Check if the function exists in the current module's globals
+            if analytic_here not in globals():
+                raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
             
-    #         analytic_func = globals()[analytic_here]
-    #     except AttributeError as e:
-    #         print(f"Error: {e}. Skipping...")
-    #         continue
-    #     run_all_except2(analytic=analytic_func, include=True, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054")  #, batch_name4 = "batch_results_20260424143751"
+            analytic_func = globals()[analytic_here]
+        except AttributeError as e:
+            print(f"Error: {e}. Skipping...")
+            continue
+        run_all_except2(analytic=analytic_func, include=True, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054")  #, batch_name4 = "batch_results_20260424143751"
 
     # #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
 
-    batch_list = ["batch_results_20260424143751", "batch_results_20260427134111"]
-    for batch in batch_list:
-        run_batch_all_analytics(batch_name=batch)
+    # batch_list = ["batch_results_20260424143751", "batch_results_20260427134111"]
+    # for batch in batch_list:
+    #     run_batch_all_analytics(batch_name=batch)
     
 
 
