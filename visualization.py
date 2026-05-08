@@ -170,8 +170,9 @@ def plot_data_runs(**kwargs):
 
     #plt.show()
 
-def transient_investigation_plot(transient, pblog_name):
-    x = transient['i']
+def transient_investigation_plot(transient, pblog_name, analytic, window_length):
+    print(transient.head())
+    x = transient['i']*20
     y = transient['avg_power']
 
     x = x[1:]
@@ -180,12 +181,12 @@ def transient_investigation_plot(transient, pblog_name):
         
         #Plot the data
     plt.figure(figsize=(10, 6))
-    plt.title(f"Data Plot for Transient test {pblog_name}: power vs trim")
+    plt.title(f"Data Plot for Transient test {pblog_name}: analytic vs trim")
 
     plt.scatter(x, y)
     # plt.xscale('log') #for physics step
-    plt.xlabel('trim(periods)')
-    plt.ylabel('power')
+    plt.xlabel(f'trim amount (s) - window = {window_length}')
+    plt.ylabel(f'{analytic.__name__}')
     plt.grid()
     plt.show()
 def hack_heatmap_plot(**kwargs):

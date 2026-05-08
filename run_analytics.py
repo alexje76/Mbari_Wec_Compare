@@ -97,12 +97,14 @@ def analytics(**kwargs):
             if kwargs['transient_investigation'] == True:
                 columns = ['i', 'trimamount', 'avg_power']
                 transient_data = pd.DataFrame(columns=columns) #create frame to hold transient data
-                for i in range(50):
-                    trim_amount = i*window_length
-                    trimmed_data = trim(run_data, trim_amount, window_length)
+                trim_amounts_step = 20
+                for i in range(20):
+                    trim_amount = i*trim_amounts_step
+                    print(trim_amount)
+                    trimmed_data = trim(run_data, trim_amount, window_length) #HERE CAN ADD WINDOW LENGTH IF NEEDED
                     analytictransient = mainDF.at[index, analytic.__name__] = analytic(trimmed_data)
                     transient_data.loc[len(transient_data)] = [i, trim_amount, analytictransient]
-                visualization.transient_investigation_plot(transient_data, pblog_name)
+                visualization.transient_investigation_plot(transient_data, pblog_name, analytic, window_length)
 
 def analytics_parallel(transient_invesigation=False, **kwargs):
     #First see if it is a batch, to get and pass each run individually
@@ -400,7 +402,7 @@ def percentile_5_RPM(trimmed_data):
 #         return sim_run_time
 ####### END UNGROUPED FUNCTIONS ############################
 
-def trim(data, trim_amount, window_length):
+def trim(data, trim_amount, window_length=0):
     """
     Trim the data by the specified amount from start and end
     """
@@ -651,35 +653,35 @@ def run_batch_all_analytics(batch_name, **kwargs):
 
 ##################TESTING##################
 def main():
-    analytics_list_res, _ = analytics_list()
-    for analytic_here in analytics_list_res:
-        try:
-            # Check if the function exists in the current module's globals
-            if analytic_here not in globals():
-                raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+    # analytics_list_res, _ = analytics_list()
+    # for analytic_here in analytics_list_res:
+    #     try:
+    #         # Check if the function exists in the current module's globals
+    #         if analytic_here not in globals():
+    #             raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
             
-            analytic_func = globals()[analytic_here]
-        except AttributeError as e:
-            print(f"Error: {e}. Skipping...")
-            continue
-        run_all_except2(analytic=analytic_func, batch_name = "batch_results_20260220105054")
+    #         analytic_func = globals()[analytic_here]
+    #     except AttributeError as e:
+    #         print(f"Error: {e}. Skipping...")
+    #         continue
+    #     run_all_except2(analytic=analytic_func, batch_name = "batch_results_20260220105054")
 
-    #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
-    #run_batch_all_analytics(batch_name="batch_results_20260421161054")
-    #run_all_except2(analytic=min_RPM, batch_name = "batch_results_20260220105054") 
-    #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
-    # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
-    # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
+    # #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
+    # #run_batch_all_analytics(batch_name="batch_results_20260421161054")
+    # #run_all_except2(analytic=min_RPM, batch_name = "batch_results_20260220105054") 
+    # #analytics_parallel(batch_name="batch_results_20260130133904", analytic=max_spring_range)
+    # # analytics_parallel(batch_name="batch_results_20260304113810", analytic=max_spring_range)
+    # # analytics_parallel(batch_name="batch_results_20260315141339", analytic=max_spring_range)
 
-    #cProfile.run('analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)') 
-    # for batch_name_idv in batch_names(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339'):
-    #     print(batch_name_idv)
-    #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
+    # #cProfile.run('analytics(batch_name="batch_results_20260220105054", analytic=max_spring_range)') 
+    # # for batch_name_idv in batch_names(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339'):
+    # #     print(batch_name_idv)
+    # #     analytics(batch_name=batch_name_idv, analytic=max_spring_range)
 
-    #run_all_except(analytic=percentile_95_spring_range)
+    # #run_all_except(analytic=percentile_95_spring_range)
 
-    #analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
-    
+    # #analytics(batch_name="batch_results_20260211181904", analytic=avg_tot_power, transient_investigation=False)
+    pass
 ##################DONE TESTING##################
 
 if __name__ == '__main__':
