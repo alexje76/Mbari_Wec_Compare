@@ -69,11 +69,11 @@ def analytics(**kwargs):
                 print('trimming in greater than 0') #Debugging
                 pass
             else:
-                trim_amount = 150
+                trim_amount = 300
                 #(run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
                 print('trimming in the else - is a #todo') #Debugging
         else:
-            trim_amount = 150  # seconds
+            trim_amount = 300  # seconds
             warnings.warn(f"No trim amount specified for {pblog_name}. Proceeding without trimming.")
 
         if 'window_length' in kwargs:
@@ -179,11 +179,11 @@ def analytics_parallel_process(index, row):
         if trim_amount > 0:
             pass
         else:
-            trim_amount = 150
+            trim_amount = 300
             #(run_data[ ' Timestamp (epoch seconds)'].iloc[-1] - run_data[ ' Timestamp (epoch seconds)'].iloc[0])*0.1 ####TODO: CHANGE THIS TRIM TO BE DYNAMIC
             #print('trimming in the else - is a #todo') #Debugging
     else:
-        trim_amount = 150  # seconds
+        trim_amount = 300  # seconds
         warnings.warn(f"No trim amount specified for {pblog_name}. Proceeding without trimming.")
 
     window_length = 0
@@ -658,25 +658,26 @@ def run_batch_all_analytics(batch_name, **kwargs):
 
 ##################TESTING##################
 def main():
-    analytics_list_res, _ = analytics_list()
-    for analytic_here in analytics_list_res:
-        try:
-            # Check if the function exists in the current module's globals
-            if analytic_here not in globals():
-                raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+    # analytics_list_res, _ = analytics_list()
+    # for analytic_here in analytics_list_res:
+    #     try:
+    #         # Check if the function exists in the current module's globals
+    #         if analytic_here not in globals():
+    #             raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
             
-            analytic_func = globals()[analytic_here]
-        except AttributeError as e:
-            print(f"Error: {e}. Skipping...")
-            continue
-        run_all_except2(analytic=analytic_func, include=True, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054")  #, batch_name4 = "batch_results_20260424143751"
+    #         analytic_func = globals()[analytic_here]
+    #     except AttributeError as e:
+    #         print(f"Error: {e}. Skipping...")
+    #         continue
+    #     run_all_except2(analytic=analytic_func, include=True, coresub=16, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751", batch_name5 = "batch_results_20260427134111")  # batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751"
 
     # #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
 
     # batch_list = ["batch_results_20260424143751", "batch_results_20260427134111"]
     # for batch in batch_list:
     #     run_batch_all_analytics(batch_name=batch)
-    
+    run_all_except2(analytic=avg_tot_power, include=True, coresub=16, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751", batch_name5 = "batch_results_20260427134111")  # batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751"
+
 
 
 
