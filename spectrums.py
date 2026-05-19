@@ -385,7 +385,7 @@ def read_spectrums():
         Returns:
             spectrums_df: DataFrame containing the spectrums data
     """
-    spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+    spectrums_csv = r'C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
     if os.path.exists(spectrums_csv):
         spectrums_df = pd.read_csv(spectrums_csv)
         #print(f"Spectrums data loaded with {len(spectrums_df)} rows and {len(spectrums_df.columns)} columns.")
