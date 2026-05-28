@@ -353,7 +353,49 @@ def calculate_sim_incidentspectrumtype(spectrum_type = None):
     print (df[['spectrum_id', 'spectrum_type', ' IncWaveSpectrumType;IncWaveSpectrumParams']])
     overwrite_spectrums(df)
 
-    #CSV handling
+def calculate_sim_incidentspectrumtype_backup(spectrum_type = None):
+    """
+    Creates the incident spectrum string to compare with later, used only for the backup if a custom spectrum was specified to the simulator instead of a simulator generated one such as Bretschneider.
+    """    
+    df = read_spectrums()
+
+    if 'IncWaveBackup' not in df.columns: #create the backup column if it doesnt exist yet
+        df['IncWaveBackup'] = None
+
+    if spectrum_type is not None:
+        usr_input = input("Type; 'Y or y' to continue, will wipe all other spectrum types from csv ")
+        if usr_input.lower() == 'y':
+            df = df[df['spectrum_type'] == spectrum_type]
+        else:
+            print('Discarding adding Incident Strings')
+        return
+        
+    print(df[['spectrum_id', 'spectrum_type', 'significantWaveHeight', 'peakPeriod']])
+    for i, row in df.iterrows():
+        if row['spectrum_type'] == 'spotter':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'bretschneider':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'BretHFP':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'regular':
+            df.at[i, 'IncWaveBackupName'] = f"MonoChromatic;A:{df.at[i, 'significantWaveHeight']/2};T:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'regularHFP':
+            A = round(df.at[i, 'significantWaveHeight'],8)/2
+            T = round(df.at[i, 'peakPeriod'],8)
+            df.at[i, 'IncWaveBackupName'] = f"MonoChromatic;A:{A};T:{T}"
+        else:
+            print(f"Unknown spectrum type {row['spectrum_type']} for spectrum ID {row['spectrum_id']}. Skipping incident spectrum type calculation.")
+
+    print (df[['spectrum_id', 'spectrum_type', 'IncWaveBackupName']])
+    overwrite_spectrums(df)
+
 def get_color_for_spectrum_type(spectrum_type):
     """
     Returns a color based on the spectrum type for consistent plotting.
@@ -469,13 +511,13 @@ def main():
     # spec_list = spectrum_list()
     # for spec in spec_list:
     #     construct_reg_HFP(spec)
-    #calculate_sim_incidentspectrumtype()
+    calculate_sim_incidentspectrumtype_backup()
 
-    df = full_spectrums()
-    write_spectrums(df)
-    list = spectrum_list()
-    for i, spectrum_id in enumerate(list):
-        construct_bretschneider(spectrum_id)
-        construct_bretschneider_min(spectrum_id)
+    # df = full_spectrums()
+    # write_spectrums(df)
+    # list = spectrum_list()
+    # for i, spectrum_id in enumerate(list):
+    #     construct_bretschneider(spectrum_id)
+    #     construct_bretschneider_min(spectrum_id)
 if __name__ == '__main__':
     main()

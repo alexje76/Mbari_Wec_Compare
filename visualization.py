@@ -712,26 +712,79 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         #Adding the code to create the titles for the plots
         # Clean the target string of the simulator wave input
         target_str = str(spec_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]).strip()
-        f_val1, *szz_vals1 = [round(float(x), 4) for part in target_str.split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
+        print(f"target_str{target_str}")
+        extracted_target = []
+        for part in target_str.split(';'):
+            if ':' not in part:
+                continue
+            tokens = part.split(':')
+            prefix = tokens[0].strip()
+            numbers = [round(float(x), 4) for x in tokens[1:]]
+            if prefix == 'f':
+                extracted_target.extend(numbers[:1])
+            elif prefix == 'Szz':
+                # Filter for non-zero values and keep only the first 5
+                non_zeros = [n for n in numbers if n != 0.0]
+                extracted_target.extend(non_zeros[:5])
+            else:
+                extracted_target.extend(numbers)
 
+        f_val1, *szz_vals1 = extracted_target
+        #f_val1, *szz_vals1 = [round(float(x), 4) for part in target_str.split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 29)]]
+
+        print(f"fval1: {f_val1}, szz_vals1:{szz_vals1}")
         # Extract and round the comparison values for the whole reference DataFrame
         # We split the string column, extract the values, and expand them into new temporary columns
         ref_parts = full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().str.split(';')
-        #print(f"ref parts{ref_parts}")
+        ref_parts_backup = full_names_spectrums_here['IncWaveBackupName'].str.strip().str.split(';')
+       # print(f"ref parts{ref_parts}")
+        print(f"ref parts backup: {ref_parts_backup}")
 
         def extract_rounded(row_parts):
-            # Extracts 1 'f' and 3 'Szz' values, returning a flat list
-            vals = [round(float(x), 4) for part in row_parts if ':' in part 
-                    for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
+            if not isinstance(row_parts, list):
+                return []
+                
+            vals = []
+            for part in row_parts:
+                if ':' not in part:
+                    continue
+                    
+                # Split prefix from its data values
+                tokens = part.split(':')
+                prefix = tokens[0].strip()
+                numbers = [round(float(x), 4) for x in tokens[1:]]
+                
+                # Extract exactly what is required based on the parameter type
+                if prefix == 'f':
+                    vals.extend(numbers[:1])   # Grab 1 frequency value
+                elif prefix == 'Szz':
+                    # Filter out elements that round to 0.0, then grab the first 5
+                    non_zeros = [n for n in numbers if n != 0.0]
+                    vals.extend(non_zeros[:5])
+                else:
+                    vals.extend(numbers)      # Grab everything for Hs, Tp, A, T, etc.
+                    
             return vals
+        # def extract_rounded(row_parts):
+        #     # Extracts 1 'f' and 3 'Szz' values, returning a flat list
+        #     vals = [round(float(x), 4) for part in row_parts if ':' in part 
+        #            for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
+        #     return vals
 
         # Apply extraction to the whole column
         extracted_data = ref_parts.apply(extract_rounded)
-        #print(f"extracted data{extracted_data}")
+        extracted_data_backup = ref_parts_backup.apply(extract_rounded)
+        print(f"extracted data backup{extracted_data_backup}")
+        print("RAW TARGET: ", target_str)
+        print("RAW ROW 39: ", full_names_spectrums_here['IncWaveBackupName'].iloc[39])
+       # print(f"extracted data{extracted_data}")
 
         # Filter the DataFrame
         #Compare the entire extracted list to our target list [f, szz1, szz2, szz3]
         matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
+        matches_backup = full_names_spectrums_here[extracted_data_backup.apply(lambda x: x == [f_val1] + szz_vals1)]
+        #print(f"matches{matches}")
+        #print(f"matches_backup{matches_backup}")
 
         #Safely extract the first (and presumably only) match
         if not matches.empty:
@@ -752,12 +805,34 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
             spectrum_type = matching_row['spectrum_type']
         else:
-            # This block runs if the string search found nothing
-            print(f"ERROR: No row found for {target_str}")
-            display_title = target_str
-            print(f'disp tit {display_title}')
-            # Optional: print the first few reference strings to see why they don't match
-            #print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
+            # This block runs if the string search found nothing, and searches the backup
+            if not matches_backup.empty:
+                matching_row = matches_backup.iloc[0]
+
+                match matching_row['spectrum_type']:
+                    case "bretschneider":
+                        display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:4]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                    case "BretHFP":
+                        display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                    case "spotter":
+                        display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
+                    case "regular":
+                        display_title = f"{matching_row['spectrum_id']}, Mono, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, T = {matching_row['peakPeriod'].astype(str)[:4]}"
+                    case "regularHFP":
+                        display_title = f"{matching_row['spectrum_id']}, MonoHFP, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, T = {matching_row['peakPeriod'].astype(str)[:4]}"
+                    case _:
+                        display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
+                spectrum_type = matching_row['spectrum_type']
+            else:
+                # This block runs if the string search found nothing
+                print(f"ERROR: No row found for {target_str}")
+                display_title = target_str[0:12]
+                print(f'disp tit {display_title}')
+                # Optional: print the first few reference strings to see why they don't match
+                #print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
+
+
+
         #print(f"print disp title{display_title}")
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'display_title'] = str(display_title)
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_id'] = matching_row['spectrum_id']
@@ -1251,15 +1326,15 @@ def wrap_title(*args):
 ##################TESTING##################
 def main():
 
+    damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
 
-    #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
+    # spectrum_nums = spectrums.spectrum_list()
+    # #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
+    # plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular', 'regularHFP'], n_cols=3, metric_sv='energy', cumsum=False)
 
-    spectrum_nums = spectrums.spectrum_list()
-    #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular', 'regularHFP'], n_cols=3, metric_sv='energy', cumsum=False)
-
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+    # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     plt.show()
 ##################DONE TESTING##################
 if __name__ == '__main__':
