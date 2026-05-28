@@ -3,6 +3,7 @@ import math
 import visualization
 import controller_funcs
 import spectrums
+import matplotlib.pyplot as plt
 
 """ def sub():
         for i in range(75, 166, 15):
@@ -130,10 +131,14 @@ def CustomSpectrumMultiplier(f, Szz, multiplier, **kwargs):
     return (f_new, Szz_new)
 
 def print_custom_spectrum(f, Szz):
-    print(" - Custom: \n" \
-    "     f: " + str(f) + "\n" \
-    "     Szz: " + str(Szz) + "\n")
+    f_str = np.array2string(f, separator=', ', formatter={'float_kind': lambda x: f"{x:.4f}"})
+    szz_str = np.array2string(Szz, separator=', ', formatter={'float_kind': lambda x: f"{x:.4f}"})
 
+    print(
+        " - Custom: \n" 
+        f"     f: {f_str}\n" 
+        f"     Szz: {szz_str}\n"
+    )
 def spectrum114():
     fMbari2022_114= [0.0293, 0.03906, 0.04883, 0.05859, 0.06836, 0.07813, 0.08789, 0.09766, 0.10742, 0.11719, 0.12695, 0.13672, 0.14648, 0.15625, 0.16602, 0.17578, 0.18555, 0.19531, 0.20508, 0.21484, 0.22461, 0.23438, 0.24414, 0.25391, 0.26367, 0.27344, 0.2832, 0.29297, 0.30273, 0.3125, 0.32227, 0.33203, 0.35156, 0.38086, 0.41016, 0.43945, 0.46875, 0.49805, 0.6543]
     SzzMbari2022_114 = [0.001000448, 0.005751808, 0.051762176, 0.377341952, 0.526379008, 0.36083814399999997, 0.161289216, 0.15978905599999998, 0.38759424, 0.515625984, 0.7389306880000001, 0.7264276479999999, 0.701170688, 0.5663887360000001, 0.441107456, 0.35608678400000005, 0.265064448, 0.25006079999999997, 0.2015488, 0.17079193599999998, 0.15328767999999998, 0.12127948799999999, 0.14303539199999998, 0.14278451200000003, 0.117778432, 0.10852659199999999, 0.10377523200000001, 0.088020992, 0.060264448000000005, 0.050762752, 0.043760639999999996, 0.040509439999999994, 0.043010047999999995, 0.029256703999999998, 0.023005184, 0.020504576, 0.014003199999999999, 0.00950272, 0.0055009279999999995]
@@ -286,9 +291,19 @@ def main():
     # print_custom_spectrum(f,szz)
     ###
     spectrum_nums = spectrums.spectrum_list()
-    visualization.plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=False, types=['spotter', 'bretschneider'], n_cols=2, metric_sv='energy', cumsum=True)
+    visualization.plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=2)
+    plt.show()
     ###
-
+    print('test')
+    spec_nums = spectrums.spectrum_list()
+    print(spec_nums)
+    for spec in spec_nums:
+        print(spec)
+        spectrum_types = ['spotter', 'bretschneider', 'BretHFP']
+        for type in spectrum_types:
+            f, szz = spectrums.spectrum(spec, type)
+            print_custom_spectrum(f, szz)
+        h = input('wait for next spectrum ')
 
 
 if __name__ == '__main__': 

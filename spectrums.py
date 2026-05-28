@@ -27,7 +27,6 @@ def full_spectrums():
     
     for segment_id in spectrums:
         matches = glob.glob(os.path.join(base_path, "**", f"spotter_data_{segment_id}.json"), recursive=True)
-
         if matches:
             file_path = matches[0]  # Use the first match found
             with open(file_path, 'r') as f:
@@ -54,14 +53,18 @@ def full_spectrums():
         
     combined_df = pd.concat(df_list, ignore_index=True)
     return combined_df
+
 def spectrum_list():
     """
     Simple function to gather all the custom spectrums
     #TODO add in the keywords to gather a subset
     """
-    mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
-    spectrum_list = mbari_2022
+    #mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
+    mbari_2022_more = np.array([729, 1239, 52, 363, 901, 270, 712, 803, 444])
+    spectrum_list = mbari_2022_more
     return spectrum_list
+
+
 def spectrum(spectrum_id, spectrum_type):
     """
     returns the f and szz for a spectrum
@@ -406,7 +409,7 @@ def write_spectrums(df):
     spectrums_df = read_spectrums()
     combined_df = pd.concat([spectrums_df, df], ignore_index=True).drop_duplicates(subset=['spectrum_id', 'spectrum_type']).reset_index(drop=True)
 
-    spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+    spectrums_csv = r'C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
     combined_df.to_csv(spectrums_csv, index=False)
     print(f"Spectrums data written to {spectrums_csv} with {len(combined_df)} rows and {len(combined_df.columns)} columns.")
 def overwrite_spectrums(df):
@@ -422,7 +425,7 @@ def overwrite_spectrums(df):
     old_specs_df = read_spectrums()
     usr_input = input("Type; 'Y' to overwrite old spectrums, if no entry defaults to keep original spectrums entries : ")
     if usr_input.lower() == 'y':
-        spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+        spectrums_csv = r'C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
         df.to_csv(spectrums_csv, index=False)
         print(f"Spectrums data overwritten to {spectrums_csv} with {len(df)} rows and {len(df.columns)} columns - old spectrums was {len(old_specs_df)} rows and {len(old_specs_df.columns)} columns.")
     else:
@@ -466,7 +469,13 @@ def main():
     # spec_list = spectrum_list()
     # for spec in spec_list:
     #     construct_reg_HFP(spec)
-    calculate_sim_incidentspectrumtype()
+    #calculate_sim_incidentspectrumtype()
 
+    df = full_spectrums()
+    write_spectrums(df)
+    list = spectrum_list()
+    for i, spectrum_id in enumerate(list):
+        construct_bretschneider(spectrum_id)
+        construct_bretschneider_min(spectrum_id)
 if __name__ == '__main__':
     main()
