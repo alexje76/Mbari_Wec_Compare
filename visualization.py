@@ -712,7 +712,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         #Adding the code to create the titles for the plots
         # Clean the target string of the simulator wave input
         target_str = str(spec_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]).strip()
-        print(f"target_str{target_str}")
+        #print(f"target_str{target_str}")
         extracted_target = []
         for part in target_str.split(';'):
             if ':' not in part:
@@ -732,13 +732,13 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         f_val1, *szz_vals1 = extracted_target
         #f_val1, *szz_vals1 = [round(float(x), 4) for part in target_str.split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 29)]]
 
-        print(f"fval1: {f_val1}, szz_vals1:{szz_vals1}")
+        #print(f"fval1: {f_val1}, szz_vals1:{szz_vals1}")
         # Extract and round the comparison values for the whole reference DataFrame
         # We split the string column, extract the values, and expand them into new temporary columns
         ref_parts = full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().str.split(';')
         ref_parts_backup = full_names_spectrums_here['IncWaveBackupName'].str.strip().str.split(';')
        # print(f"ref parts{ref_parts}")
-        print(f"ref parts backup: {ref_parts_backup}")
+        #print(f"ref parts backup: {ref_parts_backup}")
 
         def extract_rounded(row_parts):
             if not isinstance(row_parts, list):
@@ -774,9 +774,9 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         # Apply extraction to the whole column
         extracted_data = ref_parts.apply(extract_rounded)
         extracted_data_backup = ref_parts_backup.apply(extract_rounded)
-        print(f"extracted data backup{extracted_data_backup}")
-        print("RAW TARGET: ", target_str)
-        print("RAW ROW 39: ", full_names_spectrums_here['IncWaveBackupName'].iloc[39])
+        #print(f"extracted data backup{extracted_data_backup}")
+        #print("RAW TARGET: ", target_str)
+        #print("RAW ROW 39: ", full_names_spectrums_here['IncWaveBackupName'].iloc[39])
        # print(f"extracted data{extracted_data}")
 
         # Filter the DataFrame
@@ -945,6 +945,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='small')
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
+
     elif plot_type == 'avg_by_spec': #For each root spectrum, plot the average of the seeds for each damping value, each derived spectrum has it's own color
         # Group spectrum strings by their first 5 characters
         from collections import defaultdict
@@ -952,7 +953,11 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         for spec in spectrum:
             # We fetch the display name once to get the prefix key
             sample_name = str(function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]['display_title'].iloc[0])
-            groups[sample_name[:5]].append(spec)
+            # Split by the first comma and take the left part
+            group_key = sample_name.split(',', 1)[0]
+
+            # Append to your dictionary group
+            groups[group_key].append(spec)
         
         n_groups = len(groups)
         cols = kwargs.get('cols', 2)
@@ -1326,7 +1331,7 @@ def wrap_title(*args):
 ##################TESTING##################
 def main():
 
-    damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
     # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
 
     # spectrum_nums = spectrums.spectrum_list()
