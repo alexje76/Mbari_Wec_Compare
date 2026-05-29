@@ -13,13 +13,14 @@ import json
 import ast
 import sys
 import scipy
+from pathlib import Path
 
 
 def full_spectrums():
     """
     Reads JSON files for all segments and combines them into one DataFrame.
     """
-    spectrums = spectrum_list()
+    spectrums = spectrum_list_year()
     print(f"Gathering spectrums for segments: {spectrums}")
     base_path = r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\MBARI Data"
     
@@ -63,6 +64,28 @@ def spectrum_list():
     #mbari_2022_more = np.array([729, 1239, 52, 363, 901, 270, 712, 803, 444])
     spectrum_list = mbari_2022
     return spectrum_list
+def spectrum_list_year(year = 2022):
+    """For the given year, return a numpy array of all spotter_data IDs.
+
+    Parameters
+    ----------
+    year : int or str
+        Year of the dataset folder, e.g. 2022
+
+    Returns
+    -------
+    np.ndarray
+        Array of integers extracted from files matching
+        spotter_data_*.json
+    """
+    base_path = Path(r"C:\Users\Alex Eagan\Downloads")
+    year_folder = base_path / f"{year}_buoy_data_with_spotter"
+
+    files = year_folder.glob("spotter_data_*.json")
+    ids = sorted(int(f.stem.split("_")[-1]) for f in files)
+
+    return np.array(ids)
+
 
 
 def spectrum(spectrum_id, spectrum_type):
@@ -511,7 +534,7 @@ def main():
     # for spec in spec_list:
     #     construct_reg_HFP(spec)
     #calculate_sim_incidentspectrumtype_backup()
-    calculate_all('energy')
+    #calculate_all('energy')
 
     # df = full_spectrums()
     # write_spectrums(df)
@@ -519,5 +542,10 @@ def main():
     # for i, spectrum_id in enumerate(list):
     #     construct_bretschneider(spectrum_id)
     #     construct_bretschneider_min(spectrum_id)
+
+    #Adding MBARI 2022 data all. 
+    df = full_spectrums()
+    write_spectrums(df)
+
 if __name__ == '__main__':
     main()
