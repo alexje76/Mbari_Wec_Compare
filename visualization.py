@@ -955,7 +955,6 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             sample_name = str(function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]['display_title'].iloc[0])
             # Split by the first comma and take the left part
             group_key = sample_name.split(',', 1)[0]
-
             # Append to your dictionary group
             groups[group_key].append(spec)
         
@@ -997,7 +996,10 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         for spec in spectrum:
             # We fetch the display name once to get the prefix key
             sample_name = str(function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]['display_title'].iloc[0])
-            groups[sample_name[:5]].append(spec)
+            # Split by the first comma and take the left part
+            group_key = sample_name.split(',', 1)[0]
+            # Append to your dictionary group
+            groups[group_key].append(spec)
         
 
         n_groups = len(groups)
@@ -1012,10 +1014,28 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             max_energy_rows = []
 
             #Find the max energy and corresponding scale factor for spotter buoy
-            spec_spot = [s for s in spec_list if 'custom' in s.lower()][0]
-            spec_dat_spot = function_data[(function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot) & (function_data['spectrum_type'].str.contains('spotter'))]
+            custom_specs = [s for s in spec_list if 'custom' in s.lower()]
+            if custom_specs:
+                spec_spot = custom_specs[0]
+                # Since it's a custom spectrum, filter by the string directly without enforcing the 'spotter' type column
+                spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
+            else:
+                # Fallback: look for 'spotter' text if no 'custom' label exists
+                spotter_specs = [s for s in spec_list if 'spotter' in s.lower()]
+                spec_spot = spotter_specs[0] if spotter_specs else spec_list[0]
+                spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
+
             avg_data_spot = spec_dat_spot.groupby(' ScaleFactor')[metric].mean().reset_index()
+            
+            # Guard rail against empty groups to prevent the min() / max() crash later
+            if avg_data_spot.empty:
+                print(f"\n[WARNING] No baseline data found for group '{prefix}'. Skipping subplot.")
+                continue
+
+            print(f"avg data:\n{avg_data_spot}")
             max_energy_row_spot = avg_data_spot.nlargest(1, columns=[metric])
+            
+
 
             if 'damping_ref' in kwargs and kwargs['damping_ref'] == 'all_scales': #Plot all the damping scales as references, not just the reference damping scale specified by the user
                 all_scale_rows = avg_data_spot.to_dict('records')
@@ -1038,6 +1058,15 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 max_energy_damp =avg_data.nlargest(1, columns=[metric])[' ScaleFactor'].iloc[0] #Max energy row for the current spectrum, we want to find the scale factor for this row to compare to the spotter max energy row
 
                 max_energy_row = avg_data_spot[avg_data_spot[' ScaleFactor'] == max_energy_damp].copy() # Find the spotter row with the same scale factor as the spotter max energy row
+
+                # --- DEBUG & FIX BLOCK ---
+                if max_energy_row.empty:
+                    print(f"\n[DEBUG] Mismatch found for spectrum: {sample_name}")
+                    print(f" -> Current spectrum max damping ScaleFactor: {max_energy_damp}")
+                    print(f" -> Available ScaleFactors in spotter data: {avg_data_spot[' ScaleFactor'].tolist()}")
+                    print(" -> Skipping this spectrum to prevent crash.\n")
+                    continue # Skips to next spectrum instead of crashing
+                # -------------------------
 
                 #Add on the display title and color for the max energy row
                 sf_val = max_energy_row[' ScaleFactor'].iloc[0]
@@ -1332,14 +1361,16 @@ def wrap_title(*args):
 def main():
 
     damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    plt.show()
+    damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
 
     # spectrum_nums = spectrums.spectrum_list()
     # #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
     # plot_overlayed_spectrums((spectrum_nums), plots_per_page=6, period=False, types=['spotter', 'bretschneider', 'BretHFP', 'regular', 'regularHFP'], n_cols=3, metric_sv='energy', cumsum=False)
 
-    # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=6, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     plt.show()
 ##################DONE TESTING##################
 if __name__ == '__main__':
