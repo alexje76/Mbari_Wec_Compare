@@ -18,6 +18,7 @@ import glob
 import textwrap
 import math
 import scipy.integrate as integrate
+import re
 from collections import defaultdict
 
 import mainDF_management as mDF_mgmt 
@@ -598,6 +599,16 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
     selected_types = list(models.keys()) if (types is None or types == 'all') else types
 
     for start_idx in range(0, total_plots, plots_per_page):
+        
+        def sort_by_embedded_id(spectrum_key):
+            """
+            Extracts the first continuous block of digits from the spectrum key 
+            to use as a sorting integer. If no number is found, returns a high number.
+            """
+            match = re.search(r'\d+', str(spectrum_key))
+            return int(match.group()) if match else 99999
+        spectrum_nums = sorted(spectrum_nums, key=sort_by_embedded_id)
+
         batch = spectrum_nums[start_idx : start_idx + plots_per_page]
         n_rows = (len(batch) + 1) // n_cols
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows), sharey=True)
@@ -844,7 +855,18 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
     # Create a mapping of the unique spectrum values to their display titles
     title_map = function_data.set_index(' IncWaveSpectrumType;IncWaveSpectrumParams')['display_title'].to_dict()
     # Re-order the spectrum list based on the values in the title_map
-    spectrum = sorted(spectrum, key=lambda x: title_map[x])
+    #spectrum = sorted(spectrum, key=lambda x: title_map[x])
+
+    def sort_by_embedded_id(spectrum_key):
+        """
+        Extracts the first continuous block of digits from the spectrum key 
+        to use as a sorting integer. If no number is found, returns a high number.
+        """
+        match = re.search(r'\d+', str(spectrum_key))
+        return int(match.group()) if match else 99999
+   #spectrum = sorted(spectrum, key=sort_by_embedded_id)
+    spectrum = sorted(spectrum, key=lambda x: sort_by_embedded_id(title_map.get(x, "")))
+
 
     if plot_type == 'spectrumindividual':
         # Begin Subplotting

@@ -59,9 +59,9 @@ def spectrum_list():
     Simple function to gather all the custom spectrums
     #TODO add in the keywords to gather a subset
     """
-    #mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
-    mbari_2022_more = np.array([729, 1239, 52, 363, 901, 270, 712, 803, 444])
-    spectrum_list = mbari_2022_more
+    mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
+    #mbari_2022_more = np.array([729, 1239, 52, 363, 901, 270, 712, 803, 444])
+    spectrum_list = mbari_2022
     return spectrum_list
 
 
@@ -352,7 +352,6 @@ def calculate_sim_incidentspectrumtype(spectrum_type = None):
 
     print (df[['spectrum_id', 'spectrum_type', ' IncWaveSpectrumType;IncWaveSpectrumParams']])
     overwrite_spectrums(df)
-
 def calculate_sim_incidentspectrumtype_backup(spectrum_type = None):
     """
     Creates the incident spectrum string to compare with later, used only for the backup if a custom spectrum was specified to the simulator instead of a simulator generated one such as Bretschneider.
@@ -511,7 +510,8 @@ def main():
     # spec_list = spectrum_list()
     # for spec in spec_list:
     #     construct_reg_HFP(spec)
-    calculate_sim_incidentspectrumtype_backup()
+    #calculate_sim_incidentspectrumtype_backup()
+    calculate_all('energy')
 
     # df = full_spectrums()
     # write_spectrums(df)
