@@ -18,6 +18,7 @@ import glob
 import textwrap
 import math
 import scipy.integrate as integrate
+from collections import defaultdict
 
 import mainDF_management as mDF_mgmt 
 import run_analytics
@@ -948,7 +949,6 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
     elif plot_type == 'avg_by_spec': #For each root spectrum, plot the average of the seeds for each damping value, each derived spectrum has it's own color
         # Group spectrum strings by their first 5 characters
-        from collections import defaultdict
         groups = defaultdict(list)
         for spec in spectrum:
             # We fetch the display name once to get the prefix key
@@ -991,7 +991,6 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             axes_flat[j].axis('off')
     elif plot_type == 'cor_max_diff_by_spec': #For each root spectrum, plot the difference in energy between the derived "max damping" and the root max energy
         # Group spectrum strings by their first 5 characters
-        from collections import defaultdict
         groups = defaultdict(list)
         for spec in spectrum:
             # We fetch the display name once to get the prefix key
@@ -1000,41 +999,48 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             group_key = sample_name.split(',', 1)[0]
             # Append to your dictionary group
             groups[group_key].append(spec)
-        
 
         n_groups = len(groups)
         cols = kwargs.get('cols', 2)
         rows = math.ceil(n_groups / cols)
-        
-        fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 4), constrained_layout=True) #TODO: separate out the figures
+        fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 4), constrained_layout=True)
+        #TODO: separate out the figures
         axes_flat = axes.flatten() if n_groups > 1 else [axes]
         ymax = {}
+
         for i, (prefix, spec_list) in enumerate(groups.items()):
             ax = axes_flat[i]
             max_energy_rows = []
 
-            #Find the max energy and corresponding scale factor for spotter buoy
-            custom_specs = [s for s in spec_list if 'custom' in s.lower()]
-            if custom_specs:
-                spec_spot = custom_specs[0]
-                # Since it's a custom spectrum, filter by the string directly without enforcing the 'spotter' type column
-                spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
-            else:
-                # Fallback: look for 'spotter' text if no 'custom' label exists
-                spotter_specs = [s for s in spec_list if 'spotter' in s.lower()]
-                spec_spot = spotter_specs[0] if spotter_specs else spec_list[0]
-                spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
-
-            avg_data_spot = spec_dat_spot.groupby(' ScaleFactor')[metric].mean().reset_index()
+            # Find rows within the current spectrum group
+            group_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].isin(spec_list)]
             
-            # Guard rail against empty groups to prevent the min() / max() crash later
+            # Pinpoint the true spotter baseline by checking the spectrum_type column first
+            spec_dat_spot = group_data[group_data['spectrum_type'].str.lower() == 'spotter']
+            
+            if not spec_dat_spot.empty:
+                # Safely grab the unique string identifier for downstream code requirements
+                spec_spot = spec_dat_spot[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]
+            else:
+                # Fallback: Check for 'custom' string names (handles older data without 'spotter' in spectrum_type)
+                custom_specs = [s for s in spec_list if 'custom' in s.lower()]
+                if custom_specs:
+                    spec_spot = custom_specs[0]
+                    spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
+                else:
+                    # Ultimate fallback if neither check matches
+                    spec_spot = spec_list[0]
+                    spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
+
+            # Process the extracted baseline data
+            avg_data_spot = spec_dat_spot.groupby(' ScaleFactor')[metric].mean().reset_index()
+
             if avg_data_spot.empty:
-                print(f"\n[WARNING] No baseline data found for group '{prefix}'. Skipping subplot.")
+                print(f"\n[WARNING] Baseline data empty for group '{prefix}'. Skipping subplot.")
                 continue
 
-            print(f"avg data:\n{avg_data_spot}")
             max_energy_row_spot = avg_data_spot.nlargest(1, columns=[metric])
-            
+
 
 
             if 'damping_ref' in kwargs and kwargs['damping_ref'] == 'all_scales': #Plot all the damping scales as references, not just the reference damping scale specified by the user
@@ -1361,7 +1367,6 @@ def wrap_title(*args):
 def main():
 
     damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    plt.show()
     damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
 
