@@ -13,7 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.colors as mcolors
+import tempfile
 import plotly.graph_objects as go
+from pathlib import Path
 
 ########################################Start Spectrum Gathering#################################################
 def get_all_data ():
@@ -21,52 +23,75 @@ def get_all_data ():
     return df
 ########################################End Spectrum Gathering#################################################
 
-def plot_hs_tp():
+def plot_hs_tp(highlight_spectrum_types=None, base_marker_size=9):
     """
-    Plots the spectra as a function of Hs and Tp
+    Plots spectra as Significant Wave Height vs Frequency.
 
-    ----------------
-    Parameters:
-        Year: Which years are gathered if not all
+    Parameters
+    ----------
+    highlight_spectrum_types : iterable, optional
+        Spectrum types to emphasize. These are plotted last so they appear on top,
+        and their markers are drawn at 2x the base size.
+    base_marker_size : int or float, optional
+        Marker size for non-highlighted spectrum types.
 
-    ----------------
-    Returns:
+    Returns
+    -------
+    plotly.graph_objects.Figure
     """
+    highlight_spectrum_types = set(highlight_spectrum_types or [])
+
     df = get_all_data()
-    print(f"df{df}")
 
-    df = df.dropna(subset=["peakPeriod", "significantWaveHeight", "spectrum_type", "spectrum_id"])
+    df = df.dropna(
+        subset=["peakPeriod", "significantWaveHeight", "spectrum_type", "spectrum_id"]
+    ).copy()
+
+    # Frequency = 1 / period. Remove invalid periods to avoid divide-by-zero.
+    df = df[df["peakPeriod"] > 0].copy()
+    df["frequency_hz"] = 1.0 / df["peakPeriod"]
 
     fig = go.Figure()
 
-    for spectrum_type in sorted(df["spectrum_type"].unique()):
+    spectrum_types = sorted(df["spectrum_type"].unique())
+    normal_types = [s for s in spectrum_types if s not in highlight_spectrum_types]
+    highlighted_types = [s for s in spectrum_types if s in highlight_spectrum_types]
+
+    # Plot non-highlighted traces first.
+    for spectrum_type in normal_types + highlighted_types:
         subset = df[df["spectrum_type"] == spectrum_type]
+        is_highlighted = spectrum_type in highlight_spectrum_types
 
         fig.add_trace(
             go.Scatter(
-                x=subset["peakPeriod"],
+                x=subset["frequency_hz"],
                 y=subset["significantWaveHeight"],
                 mode="markers",
                 name=str(spectrum_type),
                 marker=dict(
-                    color=mcolors.to_hex(mcolors.to_rgba(spectrums.get_color_for_spectrum_type(spectrum_type))), #get_color returns tab:red but need hex
-                    size=9,
-                    opacity=0.8,
-                    line=dict(width=0.5, color="black"),
+                    color=mcolors.to_hex(
+                        mcolors.to_rgba(
+                            spectrums.get_color_for_spectrum_type(spectrum_type)
+                        )
+                    ),
+                    size=base_marker_size * 2 if is_highlighted else base_marker_size,
+                    opacity=0.9 if is_highlighted else 0.8,
+                    line=dict(width=0.75 if is_highlighted else 0.5, color="black"),
                 ),
-                customdata=subset[["spectrum_id"]],
+                customdata=subset[["spectrum_id", "peakPeriod"]],
                 hovertemplate=(
                     "spectrum_id: %{customdata[0]}<br>"
-                    "spectrum_type: " + str(spectrum_type) + "<br>"
-                    "peakPeriod: %{x}<br>"
+                    f"spectrum_type: {spectrum_type}<br>"
+                    "frequency: %{x:.4f} Hz<br>"
+                    "peakPeriod: %{customdata[1]:.4f} s<br>"
                     "significantWaveHeight: %{y}<extra></extra>"
                 ),
             )
         )
 
     fig.update_layout(
-        title="Significant Wave Height vs Peak Period",
-        xaxis_title="Peak Period",
+        title="Significant Wave Height vs Frequency",
+        xaxis_title="Frequency (Hz)",
         yaxis_title="Significant Wave Height",
         legend_title="Spectrum Type",
         template="plotly_white",
@@ -74,9 +99,46 @@ def plot_hs_tp():
 
     return fig
 
+
+def show_plot_in_window(fig, title="Hs vs Frequency"):
+    """
+    Opens the Plotly figure in its own desktop window using pywebview.
+
+    Install first if needed:
+        pip install pywebview
+
+    Falls back to fig.show() if pywebview is not installed.
+    """
+    try:
+        import webview
+    except ImportError:
+        print("pywebview is not installed; falling back to fig.show().")
+        fig.show()
+        return
+
+    html = fig.to_html(full_html=True, include_plotlyjs="cdn")
+    html_path = Path(tempfile.gettempdir()) / "hs_vs_frequency_plot.html"
+    html_path.write_text(html, encoding="utf-8")
+
+    webview.create_window(title, html_path.as_uri(), width=1200, height=800)
+    webview.start()
+
+
+
 def main():
-    fig = plot_hs_tp()
-    fig.show()
+    # Replace these with whichever spectrum types you want to emphasize.
+    highlight_types = {
+        "BretHFP",
+        "bretschneider",
+        "regular",
+        "regularHFP",
+    }
+
+    fig = plot_hs_tp(highlight_spectrum_types=highlight_types)
+
+    # Opens in a standalone window if pywebview is installed.
+    show_plot_in_window(fig)
+
 
 if __name__ == '__main__':
     main()
