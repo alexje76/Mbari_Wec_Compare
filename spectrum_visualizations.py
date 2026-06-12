@@ -23,7 +23,31 @@ def get_all_data ():
     return df
 ########################################End Spectrum Gathering#################################################
 
-def plot_hs_tp(highlight_spectrum_types=None, base_marker_size=9):
+def get_spectrum_type_style(spectrum_type):
+    """
+    Returns the marker color and symbol for a spectrum type.
+    """
+    marker_symbols = {
+        "BretHFP": "diamond",
+        "bretschneider": "square",
+        "regular": "circle",
+        "regularHFP": "triangle-up",
+    }
+
+    return {
+        "color": mcolors.to_hex(
+            mcolors.to_rgba(spectrums.get_color_for_spectrum_type(spectrum_type))
+        ),
+        "symbol": marker_symbols.get(spectrum_type, "circle"),
+    }
+
+
+
+def plot_hs_tp(
+    highlight_spectrum_types=None,
+    spectrum_type_visibility=None,
+    base_marker_size=9,
+):
     """
     Plots spectra as Significant Wave Height vs Frequency.
 
@@ -32,6 +56,9 @@ def plot_hs_tp(highlight_spectrum_types=None, base_marker_size=9):
     highlight_spectrum_types : iterable, optional
         Spectrum types to emphasize. These are plotted last so they appear on top,
         and their markers are drawn at 2x the base size.
+    spectrum_type_visibility : dict, optional
+        Mapping of spectrum type -> bool. If False, the trace starts hidden but
+        remains available in the legend so it can be toggled on.
     base_marker_size : int or float, optional
         Marker size for non-highlighted spectrum types.
 
@@ -40,6 +67,7 @@ def plot_hs_tp(highlight_spectrum_types=None, base_marker_size=9):
     plotly.graph_objects.Figure
     """
     highlight_spectrum_types = set(highlight_spectrum_types or [])
+    spectrum_type_visibility = spectrum_type_visibility or {}
 
     df = get_all_data()
 
@@ -61,6 +89,7 @@ def plot_hs_tp(highlight_spectrum_types=None, base_marker_size=9):
     for spectrum_type in normal_types + highlighted_types:
         subset = df[df["spectrum_type"] == spectrum_type]
         is_highlighted = spectrum_type in highlight_spectrum_types
+        style = get_spectrum_type_style(spectrum_type)
 
         fig.add_trace(
             go.Scatter(
@@ -68,12 +97,14 @@ def plot_hs_tp(highlight_spectrum_types=None, base_marker_size=9):
                 y=subset["significantWaveHeight"],
                 mode="markers",
                 name=str(spectrum_type),
+                visible=(
+                    True
+                    if spectrum_type_visibility.get(spectrum_type, True)
+                    else "legendonly"
+                ),
                 marker=dict(
-                    color=mcolors.to_hex(
-                        mcolors.to_rgba(
-                            spectrums.get_color_for_spectrum_type(spectrum_type)
-                        )
-                    ),
+                    color=style["color"],
+                    symbol=style["symbol"],
                     size=base_marker_size * 2 if is_highlighted else base_marker_size,
                     opacity=0.9 if is_highlighted else 0.8,
                     line=dict(width=0.75 if is_highlighted else 0.5, color="black"),
@@ -98,6 +129,7 @@ def plot_hs_tp(highlight_spectrum_types=None, base_marker_size=9):
     )
 
     return fig
+
 
 
 def show_plot_in_window(fig, title="Hs vs Frequency"):
@@ -134,10 +166,22 @@ def main():
         "regularHFP",
     }
 
-    fig = plot_hs_tp(highlight_spectrum_types=highlight_types)
+    # Set any spectrum type to False to start it hidden.
+    spectrum_type_visibility = {
+        "BretHFP": True,
+        "bretschneider": True,
+        "regular": True,
+        "regularHFP": True,
+    }
+
+    fig = plot_hs_tp(
+        highlight_spectrum_types=highlight_types,
+        spectrum_type_visibility=spectrum_type_visibility,
+    )
 
     # Opens in a standalone window if pywebview is installed.
     show_plot_in_window(fig)
+
 
 
 if __name__ == '__main__':
