@@ -60,9 +60,11 @@ def spectrum_list():
     Simple function to gather all the custom spectrums
     #TODO add in the keywords to gather a subset
     """
-    mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
+    #mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
     #mbari_2022_more = np.array([729, 1239, 52, 363, 901, 270, 712, 803, 444])
-    spectrum_list = mbari_2022
+    #mbari_2022_moremore = np.array([462, 494, 1255, 38])
+    mbari_2022_moremore = np.array([62, 496])
+    spectrum_list = mbari_2022_moremore
     return spectrum_list
 def spectrum_list_year(year = 2022):
     """For the given year, return a numpy array of all spotter_data IDs.
@@ -111,6 +113,8 @@ def spectrum(spectrum_id, spectrum_type):
     szz = np.array(ast.literal_eval(szz))
     
     return f, szz
+
+
 def spectrum_metric_single_value(spectrum_id, spectrum_type, metric):
     """
     returns the metric for a spectrum
@@ -536,16 +540,16 @@ def main():
     #calculate_sim_incidentspectrumtype_backup()
     #calculate_all('energy')
 
-    # df = full_spectrums()
-    # write_spectrums(df)
-    # list = spectrum_list()
-    # for i, spectrum_id in enumerate(list):
-    #     construct_bretschneider(spectrum_id)
-    #     construct_bretschneider_min(spectrum_id)
-
-    #Adding MBARI 2022 data all. 
     df = full_spectrums()
     write_spectrums(df)
+    list = spectrum_list()
+    for i, spectrum_id in enumerate(list):
+        construct_bretschneider(spectrum_id)
+        construct_bretschneider_min(spectrum_id)
+
+    #Adding MBARI 2022 data all. 
+    # df = full_spectrums()
+    # write_spectrums(df)
 
 if __name__ == '__main__':
     main()
