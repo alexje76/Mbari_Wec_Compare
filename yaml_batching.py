@@ -1,0 +1,329 @@
+"""
+batch_yaml_gen.py
+Batch-generates YAML files for the MBARI WEC Simulator for HYAK/SLURM usage.
+"""
+
+import math
+import yaml
+from pathlib import Path
+
+BASE_OUTPUT_DIR = Path(
+    r"C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\HYAK_batch_yamls"
+)
+
+# ─── YAML Formatting ──────────────────────────────────────────────────────────
+
+class _InlineListDumper(yaml.Dumper):
+    """Renders simple (flat) lists inline; nested structures stay block-style."""
+    pass
+
+def _represent_list(dumper, data):
+    flat = all(isinstance(v, (int, float, str, bool)) for v in data)
+    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=flat)
+
+_InlineListDumper.add_representer(list, _represent_list)
+
+# ─── Utilities ────────────────────────────────────────────────────────────────
+
+def parse_slurm_time(slurm_time: str) -> float:
+    """Parse '[D-]HH:MM:SS' SLURM time string → total minutes (float)."""
+    days, rest = (slurm_time.split("-", 1) + [None])[:2]
+    if rest is None:
+        rest, days = days, 0
+    h, m, s = (int(x) for x in rest.split(":"))
+    return int(days) * 1440 + h * 60 + m + s / 60
+
+def chunk_list(lst: list, size: int) -> list[list]:
+    """Split list into contiguous sublists of at most `size`."""
+    return [lst[i : i + size] for i in range(0, len(lst), size)]
+
+# ─── Wave Conditions ──────────────────────────────────────────────────────────
+
+def make_wave_conditions(
+    spectrum_list: list, spectrum_types: list, hs_list: list, tp_list: list
+) -> list[dict]:
+    """
+    Build a list of wave condition dicts from spectrum parameters.
+    Structured for future expansion (additional spectrum types, directional spectra, etc.).
+    """
+    lengths = {len(spectrum_list), len(spectrum_types), len(hs_list), len(tp_list)}
+    assert len(lengths) == 1, "All wave condition lists must be the same length."
+    return [
+        {"spectrum_index": idx, "spectrum_type": stype, "Hs": hs, "Tp": tp}
+        for idx, stype, hs, tp in zip(spectrum_list, spectrum_types, hs_list, tp_list)
+    ]
+
+# ─── Divide Batch: Optimisers ─────────────────────────────────────────────────
+
+def _optimize_two_chunk(A: int, B: int, budget: int) -> tuple:
+    """
+    Find (a_chunk, b_chunk) minimising ceil(A/a)*ceil(B/b) s.t. a*b <= budget.
+    Returns (n_yamls, a_chunk, b_chunk); infeasible → (inf, 0, 0).
+    """
+    if budget < 1:
+        return math.inf, 0, 0
+    best_n, best_a, best_b = math.inf, 1, 1
+    for a in range(1, A + 1):
+        b = min(budget // a, B)
+        if b < 1:
+            break
+        n = math.ceil(A / a) * math.ceil(B / b)
+        if n < best_n:
+            best_n, best_a, best_b = n, a, b
+    return best_n, best_a, best_b
+
+def _best_one_param_split(S, F, W, M) -> tuple:
+    """
+    Minimum yamls when only 1 parameter varies.
+    Returns (n_yamls, param_name, chunk_size) or (inf, None, None).
+    """
+    options = []
+    if 0 < F * W <= M:
+        options.append((math.ceil(S / (M // (F * W))), "seeds", M // (F * W)))
+    if 0 < S * W <= M:
+        options.append((math.ceil(F / (M // (S * W))), "scale", M // (S * W)))
+    if 0 < S * F <= M:
+        options.append((math.ceil(W / (M // (S * F))), "waves", M // (S * F)))
+    return min(options, key=lambda x: x[0]) if options else (math.inf, None, None)
+
+def _best_two_param_split(S, F, W, M) -> tuple:
+    """
+    Minimum yamls when exactly 2 parameters vary.
+    Returns (n_yamls, (param_a, param_b), (chunk_a, chunk_b)) or (inf, None, None).
+    """
+    options = []
+    for labels, A, B, fixed in [
+        (("seeds", "scale"), S, F, W),
+        (("seeds", "waves"), S, W, F),
+        (("scale", "waves"), F, W, S),
+    ]:
+        n, ca, cb = _optimize_two_chunk(A, B, M // fixed if fixed > 0 else 0)
+        if n != math.inf:
+            options.append((n, labels, (ca, cb)))
+    return min(options, key=lambda x: x[0]) if options else (math.inf, None, None)
+
+def _best_three_param_split(S, F, W, M) -> tuple:
+    """
+    Minimum yamls when all 3 parameters vary.
+    Returns (n_yamls, (s_chunk, f_chunk, w_chunk)).
+    """
+    best_n, best_chunks = math.inf, (1, 1, 1)
+    for s in range(1, S + 1):
+        if M // s < 1:
+            break
+        for f in range(1, F + 1):
+            if s * f > M:
+                break
+            w = min(M // (s * f), W)
+            n = math.ceil(S / s) * math.ceil(F / f) * math.ceil(W / w)
+            if n < best_n:
+                best_n, best_chunks = n, (s, f, w)
+    return best_n, best_chunks
+
+# ─── Divide Batch: Assembly ───────────────────────────────────────────────────
+
+def _assemble_yamls(seeds, scales, waves, strategy, vary_info, chunk_info) -> list:
+    """Convert a chosen strategy into a list of (seed_chunk, scale_chunk, wave_chunk)."""
+    if strategy == 1:
+        param, size = vary_info, chunk_info
+        if param == "seeds":  return [(sc, scales, waves) for sc in chunk_list(seeds, size)]
+        if param == "scale":  return [(seeds, fc, waves) for fc in chunk_list(scales, size)]
+        if param == "waves":  return [(seeds, scales, wc) for wc in chunk_list(waves, size)]
+
+    if strategy == 2:
+        (pa, pb), (ca, cb) = vary_info, chunk_info
+        if (pa, pb) == ("seeds", "scale"):
+            return [(sc, fc, waves) for sc in chunk_list(seeds, ca) for fc in chunk_list(scales, cb)]
+        if (pa, pb) == ("seeds", "waves"):
+            return [(sc, scales, wc) for sc in chunk_list(seeds, ca) for wc in chunk_list(waves, cb)]
+        if (pa, pb) == ("scale", "waves"):
+            return [(seeds, fc, wc) for fc in chunk_list(scales, ca) for wc in chunk_list(waves, cb)]
+
+    # strategy == 3
+    s_c, f_c, w_c = chunk_info
+    return [
+        (sc, fc, wc)
+        for sc in chunk_list(seeds, s_c)
+        for fc in chunk_list(scales, f_c)
+        for wc in chunk_list(waves, w_c)
+    ]
+
+def divide_batch(
+    seeds: list, scale_factors: list, wave_conditions: list,
+    max_jobs: int, readability_threshold: int
+) -> list:
+    """
+    Divide parameters into (seed_chunk, scale_chunk, wave_chunk) tuples for each yaml.
+
+    Strategy selection:
+      - Prefer fewest varying parameters.
+      - Accept a more complex strategy only when the simpler one adds more than
+        `readability_threshold` extra yamls compared to the next strategy down.
+    """
+    S, F, W = len(seeds), len(scale_factors), len(wave_conditions)
+    assert max_jobs >= 1, f"max_jobs={max_jobs}: check max_time and time_per_job."
+
+    if S * F * W <= max_jobs:
+        return [(seeds, scale_factors, wave_conditions)]
+
+    n1, p1, c1 = _best_one_param_split(S, F, W, max_jobs)
+    n2, p2, c2 = _best_two_param_split(S, F, W, max_jobs)
+    n3, c3     = _best_three_param_split(S, F, W, max_jobs)
+
+    if n1 != math.inf and (n1 - n2) <= readability_threshold:
+        return _assemble_yamls(seeds, scale_factors, wave_conditions, 1, p1, c1)
+    elif n2 != math.inf and (n2 - n3) <= readability_threshold:
+        return _assemble_yamls(seeds, scale_factors, wave_conditions, 2, p2, c2)
+    else:
+        return _assemble_yamls(seeds, scale_factors, wave_conditions, 3, None, c3)
+
+# ─── File Naming ──────────────────────────────────────────────────────────────
+
+def make_yaml_name(batch_name: str, seed_chunk, scale_chunk, wave_chunk) -> str:
+    """Encode parameter ranges into a descriptive filename."""
+    s_tag  = f"s{seed_chunk[0]}-{seed_chunk[-1]}"   if len(seed_chunk)  > 1 else f"s{seed_chunk[0]}"
+    sf_tag = f"sf{scale_chunk[0]}-{scale_chunk[-1]}" if len(scale_chunk) > 1 else f"sf{scale_chunk[0]}"
+    spec_tag = "spectrums" + ",".join(str(w["spectrum_index"]) for w in wave_chunk)
+    return f"{batch_name}_{s_tag}_{sf_tag}_{spec_tag}.yaml"
+
+# ─── YAML Construction ────────────────────────────────────────────────────────
+
+def build_fixed_params(
+    duration, physics_rtf, enable_gui, physics_step, door_state, battery_soc
+) -> dict:
+    """
+    Return fixed-parameter dict.
+    Centralised here so adding a new fixed param in the future is a single-line change.
+    """
+    return {
+        "duration":     duration,
+        "physics_rtf":  physics_rtf,
+        "enable_gui":   enable_gui,
+        "physics_step": physics_step,
+        "door_state":   door_state,
+        "battery_soc":  battery_soc,
+    }
+
+def _wave_yaml_entry(wave_chunk: list) -> list:
+    """Convert wave condition dicts → IncidentWaveSpectrumType yaml structure."""
+    return [
+        {w["spectrum_type"]: {"Hs": [w["Hs"]], "Tp": [w["Tp"]]}}
+        for w in wave_chunk
+    ]
+
+def build_yaml_dict(fixed_params: dict, seed_chunk, scale_chunk, wave_chunk) -> dict:
+    """Assemble the complete content dict for one yaml file."""
+    return {
+        **fixed_params,
+        "seed":                    seed_chunk,
+        "scale_factor":            scale_chunk,
+        "IncidentWaveSpectrumType": _wave_yaml_entry(wave_chunk),
+    }
+
+# ─── YAML Writing ─────────────────────────────────────────────────────────────
+
+def write_yaml(batch_folder: Path, yaml_name: str, yaml_dict: dict):
+    """Write a single yaml file into batch_folder (created if absent)."""
+    batch_folder.mkdir(parents=True, exist_ok=True)
+    with open(batch_folder / yaml_name, "w") as f:
+        yaml.dump(yaml_dict, f, Dumper=_InlineListDumper,
+                  default_flow_style=False, sort_keys=False)
+
+def write_yamls(batch_name: str, yaml_specs: list, fixed_params: dict) -> tuple:
+    """Write all yaml files; returns (count, batch_folder)."""
+    batch_folder = BASE_OUTPUT_DIR / batch_name
+    for seed_chunk, scale_chunk, wave_chunk in yaml_specs:
+        name = make_yaml_name(batch_name, seed_chunk, scale_chunk, wave_chunk)
+        data = build_yaml_dict(fixed_params, seed_chunk, scale_chunk, wave_chunk)
+        write_yaml(batch_folder, name, data)
+    return len(yaml_specs), batch_folder
+
+# ─── Input Checking ───────────────────────────────────────────────────────────
+
+def _prompt(label: str, value):
+    """Print one parameter and require 'y' to continue."""
+    resp = input(f"  {label}: {value}  [y/n] > ").strip().lower()
+    if resp != "y":
+        raise SystemExit(f"\n✗ Aborted at: '{label}'")
+
+def check_inputs(
+    batch_name, max_jobs, readability_threshold,
+    seeds, scale_factors, wave_conditions, fixed_params
+):
+    """
+    Interactive y/n confirmation of all batch parameters before any files are written.
+    Calls individual prompts for each parameter group.
+    """
+    total_jobs = len(seeds) * len(scale_factors) * len(wave_conditions)
+    print("\n╔══ Batch Configuration ══════════════════════════════════╗")
+
+    # Overhead
+    _prompt("Batch name",            batch_name)
+    _prompt("Max jobs per yaml",      max_jobs)
+    _prompt("Readability threshold",  readability_threshold)
+
+    # Variable parameters
+    _prompt("Seeds",          seeds)
+    _prompt("Scale factors",  scale_factors)
+    for w in wave_conditions:
+        _prompt(
+            f"Wave (spectrum {w['spectrum_index']}, {w['spectrum_type']})",
+            f"Hs={w['Hs']}, Tp={w['Tp']}"
+        )
+
+    # Fixed parameters
+    print("  Fixed parameters:")
+    for k, v in fixed_params.items():
+        _prompt(f"  {k}", v)
+
+    # Summary
+    print(f"\n  Total jobs in full batch: {total_jobs}")
+    _prompt("Proceed with writing yamls?", "confirm")
+    print("╚══════════════════════════════════════════════════════════╝\n")
+
+# ─── Main ─────────────────────────────────────────────────────────────────────
+
+def main():
+    # ── Overhead / timing ────────────────────────────────────────────────────
+    batch_name            = "test_batch2"
+    max_time              = "4:00:00"   # SLURM format [D-]HH:MM:SS
+    time_per_job          = 40          # minutes per simulation job
+    readability_threshold = 10          # max extra yamls to accept fewer varying params
+
+    # ── Derive max jobs per yaml (n-1 safety buffer) ─────────────────────────
+    max_jobs = int(parse_slurm_time(max_time) / time_per_job) - 1
+
+    # ── Variable parameters ──────────────────────────────────────────────────
+    seeds         = [1, 2, 3]
+    scale_factors = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
+
+    spectrum_list  = [114, 569]
+    spectrum_types = ["Bretschneider", "Bretschneider"]
+    hs_list        = [1.304, 2.0]
+    tp_list        = [11.378, 12.0]
+    wave_conditions = make_wave_conditions(spectrum_list, spectrum_types, hs_list, tp_list)
+
+    # ── Fixed parameters (add new fixed params here + in build_fixed_params) ──
+    fixed_params = build_fixed_params(
+        duration     = 2360,
+        physics_rtf  = 10,
+        enable_gui   = False,
+        physics_step = 0.01,
+        door_state   = ["closed"],
+        battery_soc  = 0.5,
+    )
+
+    # ── Validate with user ────────────────────────────────────────────────────
+    check_inputs(batch_name, max_jobs, readability_threshold,
+                 seeds, scale_factors, wave_conditions, fixed_params)
+
+    # ── Divide and write ──────────────────────────────────────────────────────
+    yaml_specs = divide_batch(
+        seeds, scale_factors, wave_conditions, max_jobs, readability_threshold
+    )
+    count, batch_folder = write_yamls(batch_name, yaml_specs, fixed_params)
+
+    print(f"✓ Wrote {count} yaml files → {batch_folder}")
+
+if __name__ == "__main__":
+    main()

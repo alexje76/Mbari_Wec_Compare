@@ -70,7 +70,7 @@ def plot_hs_tp(
     spectrum_type_visibility = spectrum_type_visibility or {}
 
     df = get_all_data()
-
+ 
     df = df.dropna(
         subset=["peakPeriod", "significantWaveHeight", "spectrum_type", "spectrum_id"]
     ).copy()
