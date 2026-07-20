@@ -220,12 +220,8 @@ def construct_bretschneider_min(spectrum_id, **kwargs):
 
     # 2. Check if we found at least one peak
     if len(peak_indices) > 0:
-        # If there are 2 or more peaks, take the second one [1]
-        # Otherwise, take the first one [0]
-        if len(peak_indices) >= 2:
-            peak_idx = peak_indices[1]
-        else:
-            peak_idx = peak_indices[0]
+        # Find the peak index that corresponds to the highest value in szz_np
+        peak_idx = peak_indices[np.argmax(szz_np[peak_indices])]
         
         # Get the actual value from the array at that index
         peak_val = szz_np[peak_idx]
