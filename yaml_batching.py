@@ -5,11 +5,25 @@ Batch-generates YAML files for the MBARI WEC Simulator for HYAK/SLURM usage.
 
 import math
 import yaml
+import numpy as np
 from pathlib import Path
+import spectrums as spec_module
 
 BASE_OUTPUT_DIR = Path(
     r"C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\HYAK_batch_yamls"
 )
+
+# ─── Type Mapping ─────────────────────────────────────────────────────────────
+
+# Maps internal spectrum_type strings (from spectrums.csv) to YAML key names.
+# 'spotter'       → Custom       (writes full f / Szz arrays)
+# 'bretschneider' → Bretschneider (writes Hs / Tp scalars)
+# 'BretHFP'       → Bretschneider (writes Hs / Tp scalars)
+_YAML_KEY_MAP = {
+    "spotter":       "Custom",
+    "bretschneider": "Bretschneider",
+    "BretHFP":       "Bretschneider",
+}
 
 # ─── YAML Formatting ──────────────────────────────────────────────────────────
 
@@ -37,21 +51,77 @@ def chunk_list(lst: list, size: int) -> list[list]:
     """Split list into contiguous sublists of at most `size`."""
     return [lst[i : i + size] for i in range(0, len(lst), size)]
 
+def _round_to_4dp(arr) -> list:
+    """
+    Convert an array-like to a list of floats rounded to 4 decimal places.
+    Matches the precision used in print_custom_spectrum().
+    """
+    return [round(float(x), 4) for x in arr]
+
 # ─── Wave Conditions ──────────────────────────────────────────────────────────
 
-def make_wave_conditions(
-    spectrum_list: list, spectrum_types: list, hs_list: list, tp_list: list
-) -> list[dict]:
+def make_wave_conditions(spectrum_ids: list, spectrum_types: list) -> list[dict]:
     """
-    Build a list of wave condition dicts from spectrum parameters.
-    Structured for future expansion (additional spectrum types, directional spectra, etc.).
+    Build wave condition dicts by fetching all data from the spectrums CSV.
+
+    For 'spotter' types              → fetches f and Szz arrays → Custom YAML key.
+    For 'bretschneider' / 'BretHFP' → fetches Hs and Tp        → Bretschneider YAML key.
+
+    Parameters
+    ----------
+    spectrum_ids : list of int
+        Spectrum IDs matching entries in spectrums.csv.
+    spectrum_types : list of str
+        Internal spectrum type strings (e.g. 'spotter', 'BretHFP', 'bretschneider').
+
+    Returns
+    -------
+    list of dict, each containing:
+        spectrum_index, internal_type, yaml_key, and either
+        (f, Szz) for Custom or (Hs, Tp) for Bretschneider.
     """
-    lengths = {len(spectrum_list), len(spectrum_types), len(hs_list), len(tp_list)}
-    assert len(lengths) == 1, "All wave condition lists must be the same length."
-    return [
-        {"spectrum_index": idx, "spectrum_type": stype, "Hs": hs, "Tp": tp}
-        for idx, stype, hs, tp in zip(spectrum_list, spectrum_types, hs_list, tp_list)
-    ]
+    assert len(spectrum_ids) == len(spectrum_types), \
+        "spectrum_ids and spectrum_types must be the same length."
+
+    conditions = []
+    for sid, stype in zip(spectrum_ids, spectrum_types):
+        yaml_key = _YAML_KEY_MAP.get(stype)
+        if yaml_key is None:
+            raise ValueError(
+                f"Unknown spectrum type '{stype}'. "
+                f"Supported types: {list(_YAML_KEY_MAP.keys())}"
+            )
+
+        if yaml_key == "Custom":
+            # spec_module.spectrum() reads and parses f/Szz from the CSV,
+            # returning numpy arrays ready for rounding.
+            f_arr, szz_arr = spec_module.spectrum(sid, stype)
+            conditions.append({
+                "spectrum_index": sid,
+                "internal_type":  stype,
+                "yaml_key":       "Custom",
+                "f":              _round_to_4dp(f_arr),
+                "Szz":            _round_to_4dp(szz_arr),
+            })
+
+        else:  # Bretschneider
+            df = spec_module.read_spectrums()
+            row = df[(df["spectrum_id"] == sid) & (df["spectrum_type"] == stype)]
+            if row.empty:
+                raise ValueError(
+                    f"Spectrum ID {sid} of type '{stype}' not found in spectrums CSV."
+                )
+            hs = float(row["significantWaveHeight"].iloc[0])
+            tp = float(row["peakPeriod"].iloc[0])
+            conditions.append({
+                "spectrum_index": sid,
+                "internal_type":  stype,
+                "yaml_key":       "Bretschneider",
+                "Hs":             round(hs, 4),
+                "Tp":             round(tp, 4),
+            })
+
+    return conditions
 
 # ─── Divide Batch: Optimisers ─────────────────────────────────────────────────
 
@@ -181,8 +251,8 @@ def divide_batch(
 
 def make_yaml_name(batch_name: str, seed_chunk, scale_chunk, wave_chunk) -> str:
     """Encode parameter ranges into a descriptive filename."""
-    s_tag  = f"s{seed_chunk[0]}-{seed_chunk[-1]}"   if len(seed_chunk)  > 1 else f"s{seed_chunk[0]}"
-    sf_tag = f"sf{scale_chunk[0]}-{scale_chunk[-1]}" if len(scale_chunk) > 1 else f"sf{scale_chunk[0]}"
+    s_tag    = f"s{seed_chunk[0]}-{seed_chunk[-1]}"    if len(seed_chunk)  > 1 else f"s{seed_chunk[0]}"
+    sf_tag   = f"sf{scale_chunk[0]}-{scale_chunk[-1]}" if len(scale_chunk) > 1 else f"sf{scale_chunk[0]}"
     spec_tag = "spectrums" + ",".join(str(w["spectrum_index"]) for w in wave_chunk)
     return f"{batch_name}_{s_tag}_{sf_tag}_{spec_tag}.yaml"
 
@@ -205,18 +275,36 @@ def build_fixed_params(
     }
 
 def _wave_yaml_entry(wave_chunk: list) -> list:
-    """Convert wave condition dicts → IncidentWaveSpectrumType yaml structure."""
-    return [
-        {w["spectrum_type"]: {"Hs": [w["Hs"]], "Tp": [w["Tp"]]}}
-        for w in wave_chunk
-    ]
+    """
+    Convert wave condition dicts → IncidentWaveSpectrumType yaml structure.
+
+    Custom entries write full f / Szz arrays.
+    Bretschneider entries write Hs / Tp scalar lists.
+    """
+    entries = []
+    for w in wave_chunk:
+        if w["yaml_key"] == "Custom":
+            entries.append({
+                "Custom": {
+                    "f":   w["f"],
+                    "Szz": w["Szz"],
+                }
+            })
+        elif w["yaml_key"] == "Bretschneider":
+            entries.append({
+                "Bretschneider": {
+                    "Hs": [w["Hs"]],
+                    "Tp": [w["Tp"]],
+                }
+            })
+    return entries
 
 def build_yaml_dict(fixed_params: dict, seed_chunk, scale_chunk, wave_chunk) -> dict:
     """Assemble the complete content dict for one yaml file."""
     return {
         **fixed_params,
-        "seed":                    seed_chunk,
-        "scale_factor":            scale_chunk,
+        "seed":                     seed_chunk,
+        "scale_factor":             scale_chunk,
         "IncidentWaveSpectrumType": _wave_yaml_entry(wave_chunk),
     }
 
@@ -252,7 +340,9 @@ def check_inputs(
 ):
     """
     Interactive y/n confirmation of all batch parameters before any files are written.
-    Calls individual prompts for each parameter group.
+
+    Custom spectrums display spectrum_id, type, and array lengths.
+    Bretschneider spectrums display spectrum_id, type, Hs, and Tp.
     """
     total_jobs = len(seeds) * len(scale_factors) * len(wave_conditions)
     print("\n╔══ Batch Configuration ══════════════════════════════════╗")
@@ -263,13 +353,20 @@ def check_inputs(
     _prompt("Readability threshold",  readability_threshold)
 
     # Variable parameters
-    _prompt("Seeds",          seeds)
-    _prompt("Scale factors",  scale_factors)
+    _prompt("Seeds",         seeds)
+    _prompt("Scale factors", scale_factors)
+
     for w in wave_conditions:
-        _prompt(
-            f"Wave (spectrum {w['spectrum_index']}, {w['spectrum_type']})",
-            f"Hs={w['Hs']}, Tp={w['Tp']}"
-        )
+        if w["yaml_key"] == "Custom":
+            _prompt(
+                f"Wave (spectrum {w['spectrum_index']}, {w['internal_type']})",
+                f"Custom — len(f)={len(w['f'])}, len(Szz)={len(w['Szz'])}",
+            )
+        elif w["yaml_key"] == "Bretschneider":
+            _prompt(
+                f"Wave (spectrum {w['spectrum_index']}, {w['internal_type']})",
+                f"Bretschneider — Hs={w['Hs']}, Tp={w['Tp']}",
+            )
 
     # Fixed parameters
     print("  Fixed parameters:")
@@ -287,7 +384,7 @@ def main():
     # ── Overhead / timing ────────────────────────────────────────────────────
     batch_name            = "test_batch2"
     max_time              = "4:00:00"   # SLURM format [D-]HH:MM:SS
-    time_per_job          = 40          # minutes per simulation job
+    time_per_job          = 34          # minutes per simulation job
     readability_threshold = 10          # max extra yamls to accept fewer varying params
 
     # ── Derive max jobs per yaml (n-1 safety buffer) ─────────────────────────
@@ -297,11 +394,11 @@ def main():
     seeds         = [1, 2, 3]
     scale_factors = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
 
-    spectrum_list  = [114, 569]
-    spectrum_types = ["Bretschneider", "Bretschneider"]
-    hs_list        = [1.304, 2.0]
-    tp_list        = [11.378, 12.0]
-    wave_conditions = make_wave_conditions(spectrum_list, spectrum_types, hs_list, tp_list)
+    # f/Szz (Custom) or Hs/Tp (Bretschneider) are fetched automatically from
+    # spectrums.csv based on the spectrum_type provided here.
+    spectrum_ids   = [114, 198]
+    spectrum_types = ["spotter", "BretHFP"]   # 'spotter' → Custom, 'BretHFP' → Bretschneider
+    wave_conditions = make_wave_conditions(spectrum_ids, spectrum_types)
 
     # ── Fixed parameters (add new fixed params here + in build_fixed_params) ──
     fixed_params = build_fixed_params(
