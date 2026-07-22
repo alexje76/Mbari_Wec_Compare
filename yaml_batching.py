@@ -23,6 +23,7 @@ _YAML_KEY_MAP = {
     "spotter":       "Custom",
     "bretschneider": "Bretschneider",
     "BretHFP":       "Bretschneider",
+    "BretSFP":       "Bretschneider",
 }
 
 # ─── YAML Formatting ──────────────────────────────────────────────────────────
@@ -80,11 +81,13 @@ def make_wave_conditions(spectrum_ids: list, spectrum_types: list) -> list[dict]
         spectrum_index, internal_type, yaml_key, and either
         (f, Szz) for Custom or (Hs, Tp) for Bretschneider.
     """
-    assert len(spectrum_ids) == len(spectrum_types), \
-        "spectrum_ids and spectrum_types must be the same length."
+    # Dynamically create combinations of spectrum_ids and spectrum_types
+    spectrum_combinations = [
+        (sid, stype) for sid in spectrum_ids for stype in spectrum_types
+    ]
 
     conditions = []
-    for sid, stype in zip(spectrum_ids, spectrum_types):
+    for sid, stype in spectrum_combinations:
         yaml_key = _YAML_KEY_MAP.get(stype)
         if yaml_key is None:
             raise ValueError(
@@ -382,9 +385,9 @@ def check_inputs(
 
 def main():
     # ── Overhead / timing ────────────────────────────────────────────────────
-    batch_name            = "test_batch2"
+    batch_name            = "spotter_bret_SFP_30+"
     max_time              = "4:00:00"   # SLURM format [D-]HH:MM:SS
-    time_per_job          = 34          # minutes per simulation job
+    time_per_job          = 30          # minutes per simulation job
     readability_threshold = 10          # max extra yamls to accept fewer varying params
 
     # ── Derive max jobs per yaml (n-1 safety buffer) ─────────────────────────
@@ -396,8 +399,15 @@ def main():
 
     # f/Szz (Custom) or Hs/Tp (Bretschneider) are fetched automatically from
     # spectrums.csv based on the spectrum_type provided here.
-    spectrum_ids   = [114, 198]
-    spectrum_types = ["spotter", "BretHFP"]   # 'spotter' → Custom, 'BretHFP' → Bretschneider
+    mbari_2022 = [114, 198, 260, 384, 532, 597]
+    mbari_2022_more = [729, 1239, 52, 363, 901, 270, 712, 803, 444]
+    mbari_2022_moremorea = [462, 494, 1255, 38]
+    mbari_2022_moremoreb = [62, 496]
+    spec_ids_add = mbari_2022 + mbari_2022_more + mbari_2022_moremorea + mbari_2022_moremoreb
+    spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
+    spectrum_ids = sorted(spectrum_ids + spec_ids_add)
+    print(spectrum_ids)
+    spectrum_types = ["BretSFP"]   # 'spotter' → Custom, 'BretHFP' → Bretschneider
     wave_conditions = make_wave_conditions(spectrum_ids, spectrum_types)
 
     # ── Fixed parameters (add new fixed params here + in build_fixed_params) ──
