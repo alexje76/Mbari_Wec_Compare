@@ -1,0 +1,30 @@
+duration: 2360
+physics_rtf: 10
+enable_gui: false
+physics_step: 0.01
+door_state: [closed]
+battery_soc: 0.5
+seed: [1]
+scale_factor: [0.8]
+IncidentWaveSpectrumType:
+- Bretschneider:
+    Hs: [0.804]
+    Tp: [7.3142]
+- Bretschneider:
+    Hs: [2.6061]
+    Tp: [9.3093]
+- Bretschneider:
+    Hs: [1.9104]
+    Tp: [9.3093]
+- Bretschneider:
+    Hs: [1.3076]
+    Tp: [6.4]
+- Bretschneider:
+    Hs: [1.3873]
+    Tp: [8.5332]
+- Bretschneider:
+    Hs: [1.1271]
+    Tp: [7.8771]
+- Bretschneider:
+    Hs: [1.194]
+    Tp: [7.8771]
