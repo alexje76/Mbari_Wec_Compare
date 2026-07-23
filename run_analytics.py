@@ -59,7 +59,7 @@ def analytics(**kwargs):
     #Second run analytic function for each run 
     for index, row in analytics_data.iterrows():
         pblog_name = row[' pblogFilename'].strip()
-        run_data = get_data(pblog_name=pblog_name)
+        run_data = get_data(pblog_name=pblog_name, run_data_path=row['run_data_path'])
         #print(run_data)
 
         if row['trim']:
@@ -171,7 +171,7 @@ def analytics_parallel_process(index, row):
     analytic_name = _worker_analytic.name
 
     pblog_name = row[' pblogFilename'].strip()
-    run_data = get_data(pblog_name=pblog_name)
+    run_data = get_data(pblog_name=pblog_name, run_data_path=row['run_data_path'])
     #print(run_data)
 
     if row['trim']:
@@ -440,6 +440,20 @@ def get_data(feather=True, **kwargs): #deciding how to access data - batchname a
     Parameters:
         feather: bool, optional: Whether to use feather files for faster access if available, by default True
     """
+    if 'run_data_path' in kwargs:
+        rdp = kwargs['run_data_path']
+        parts = rdp.replace('\\', '/').split('/')
+        feather_key = '_'.join(parts[-5:-2])  # task_X / batch_results_TS / results_run_X_TS
+        feather_dir = r"F:\MBARI\runFeathers"
+        os.makedirs(feather_dir, exist_ok=True)
+        feather_file = os.path.join(feather_dir, f"{feather_key}.feather")
+        if feather and os.path.exists(feather_file):
+            return pd.read_feather(feather_file)
+        run_data = pd.read_csv(rdp)
+        if feather:
+            run_data.to_feather(feather_file)
+        return run_data
+    
     if 'batch_name' in kwargs and 'run_number' in kwargs:
         #get mainDF index from batch name and run number
         #TODO: implement
@@ -656,41 +670,69 @@ def run_batch_all_analytics(batch_name, **kwargs):
         
         analytics(batch_name=batch_name_here, analytic=analytic_func, transient_investigation=transient_investigation_here)
 
+def resolve_hyak_batch_names(hyak_batch_names):
+    """
+    Given a list of HYAK parent batch names, returns the corresponding
+    batch_results_XXXXX names stored in mainDF by matching against run_data_path.
+    """
+    mainDF = mDF_mgmt.access_mainDF()
+    resolved = set()
+    for hyak_name in hyak_batch_names:
+        matches = mainDF[mainDF['run_data_path'].str.contains(hyak_name, na=False)]['batch_file_name'].unique()
+        resolved.update(matches)
+    return list(resolved)
+
+
 ##################TESTING##################
 def main():
+    batch_names = ['batch_spotter_bret_30_37374379_20260720', 'batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722']
+    
+    resolved_batches = resolve_hyak_batch_names(batch_names)
+    batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
+
+    analytics_list_res, _ = analytics_list()
+    for analytic_here in analytics_list_res:
+        try:
+            if analytic_here not in globals():
+                raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+            analytic_func = globals()[analytic_here]
+        except AttributeError as e:
+            print(f"Error: {e}. Skipping...")
+            continue
+        run_all_except2(analytic=analytic_func, include=True, coresub=16, **batch_kwargs)
+    # # analytics_list_res, _ = analytics_list()
+    # # for analytic_here in analytics_list_res:
+    # #     try:
+    # #         # Check if the function exists in the current module's globals
+    # #         if analytic_here not in globals():
+    # #             raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
+            
+    # #         analytic_func = globals()[analytic_here]
+    # #     except AttributeError as e:
+    # #         print(f"Error: {e}. Skipping...")
+    # #         continue
+    # #     run_all_except2(analytic=analytic_func, include=True, coresub=16, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751", batch_name5 = "batch_results_20260427134111")  # batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751"
+
+    # # #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
+
+    # # batch_list = ["batch_results_20260424143751", "batch_results_20260427134111"]
+    # # for batch in batch_list:
+    # #     run_batch_all_analytics(batch_name=batch)
+    # #run_all_except2(analytic=avg_tot_power, include=True, coresub=16, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751", batch_name5 = "batch_results_20260427134111")  # batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751"
+
+
     # analytics_list_res, _ = analytics_list()
     # for analytic_here in analytics_list_res:
     #     try:
     #         # Check if the function exists in the current module's globals
     #         if analytic_here not in globals():
     #             raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
-            
+        
     #         analytic_func = globals()[analytic_here]
     #     except AttributeError as e:
     #         print(f"Error: {e}. Skipping...")
     #         continue
-    #     run_all_except2(analytic=analytic_func, include=True, coresub=16, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751", batch_name5 = "batch_results_20260427134111")  # batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751"
-
-    # #analytics(batch_name="batch_results_20260421161054", analytic=avg_tot_power, transient_investigation=False)
-
-    # batch_list = ["batch_results_20260424143751", "batch_results_20260427134111"]
-    # for batch in batch_list:
-    #     run_batch_all_analytics(batch_name=batch)
-    #run_all_except2(analytic=avg_tot_power, include=True, coresub=16, batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751", batch_name5 = "batch_results_20260427134111")  # batch_name = "batch_results_20260416144652", batch_name2 = "batch_results_20260417113624", batch_name3 = "batch_results_20260421161054", batch_name4 = "batch_results_20260424143751"
-
-
-    analytics_list_res, _ = analytics_list()
-    for analytic_here in analytics_list_res:
-        try:
-            # Check if the function exists in the current module's globals
-            if analytic_here not in globals():
-                raise AttributeError(f"Function '{analytic_here}' not found in global scope.")
-        
-            analytic_func = globals()[analytic_here]
-        except AttributeError as e:
-            print(f"Error: {e}. Skipping...")
-            continue
-        run_all_except2(analytic=analytic_func, include=True, coresub=16, batch_name = 'batch_results_20260518185853')
+    #     run_all_except2(analytic=analytic_func, include=True, coresub=16, batch_name = 'batch_results_20260518185853')
 
 
 ##################DONE TESTING##################
