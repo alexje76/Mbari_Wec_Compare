@@ -59,7 +59,7 @@ def analytics(**kwargs):
     #Second run analytic function for each run 
     for index, row in analytics_data.iterrows():
         pblog_name = row[' pblogFilename'].strip()
-        run_data = get_data(pblog_name=pblog_name)
+        run_data = get_data(pblog_name=pblog_name, run_data_path=row['run_data_path'])
         #print(run_data)
 
         if row['trim']:
@@ -171,7 +171,7 @@ def analytics_parallel_process(index, row):
     analytic_name = _worker_analytic.name
 
     pblog_name = row[' pblogFilename'].strip()
-    run_data = get_data(pblog_name=pblog_name)
+    run_data = get_data(pblog_name=pblog_name, run_data_path=row['run_data_path'])
     #print(run_data)
 
     if row['trim']:
@@ -440,6 +440,20 @@ def get_data(feather=True, **kwargs): #deciding how to access data - batchname a
     Parameters:
         feather: bool, optional: Whether to use feather files for faster access if available, by default True
     """
+    if 'run_data_path' in kwargs:
+        rdp = kwargs['run_data_path']
+        parts = rdp.replace('\\', '/').split('/')
+        feather_key = '_'.join(parts[-5:-2])  # task_X / batch_results_TS / results_run_X_TS
+        feather_dir = r"F:\MBARI\runFeathers"
+        os.makedirs(feather_dir, exist_ok=True)
+        feather_file = os.path.join(feather_dir, f"{feather_key}.feather")
+        if feather and os.path.exists(feather_file):
+            return pd.read_feather(feather_file)
+        run_data = pd.read_csv(rdp)
+        if feather:
+            run_data.to_feather(feather_file)
+        return run_data
+    
     if 'batch_name' in kwargs and 'run_number' in kwargs:
         #get mainDF index from batch name and run number
         #TODO: implement

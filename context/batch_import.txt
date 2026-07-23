@@ -29,16 +29,17 @@ from collections import defaultdict
 import mainDF_management as mDF_mgmt 
 
 
-def import_batch(batch_file_name):
+def import_batch(batch_file_name, batch_file_path=None):
     """
     Take the batch file name, find the file.
     Import the data to the mainDF, then import that file name to batchfolder log
     """
-    batch_file_path = batch_filepath_sourcing(batch_file_name) #Find batch file path
+    if batch_file_path is None:
+        batch_file_path = batch_filepath_sourcing(batch_file_name) #Find batch file path
 
     global mainDF
     mainDF = mDF_mgmt.access_mainDF()  # Get mainDF (returned) in scope
-    if mainDF.empty or not (mainDF['batch_file_name'].str.contains(batch_file_name).any()):  # Check if mainDF has batch data or empty
+    if mainDF.empty or 'run_data_path' not in mainDF.columns or not (mainDF['run_data_path'].dropna().str.startswith(batch_file_path).any()):  # Check if mainDF has batch data or empty
         add_to_mainDF(batch_file_path, batch_file_name) #Import batch to main DF 
     else:
         print("mainDF already imported this batch:")
@@ -68,8 +69,19 @@ def add_to_mainDF(batch_file_path, batch_file_name):
         print(f"Processing run {run_idx} from batch_runs.log")
         # use the exact column name from the log header (case and whitespace sensitive), join to batchpath, replace backwards slashes for cross-platform compatibility 
         run_pblogdir_path = os.path.normpath(os.path.join(batch_file_path, str(run_row[' pblogFilename']).strip()))
-        run_data_path = [f for f in os.listdir(run_pblogdir_path) if f.endswith('.csv')]
-        run_data_path = os.path.join(run_pblogdir_path, run_data_path[0])
+        if not os.path.exists(run_pblogdir_path):
+            print(f"  [SKIP] pblog directory not found, skipping run {run_idx}: {run_pblogdir_path}")
+            input('Enter to continue')
+            continue
+
+        csv_files = [f for f in os.listdir(run_pblogdir_path) if f.endswith('.csv')]
+
+        if not csv_files:
+            print(f"  [SKIP] No CSV file found in pblog directory, skipping run {run_idx}: {run_pblogdir_path}")
+            input('Enter to continue')
+            continue
+
+        run_data_path = os.path.join(run_pblogdir_path, csv_files[0])
 
         if os.path.exists(run_data_path):
             global mainDF
@@ -83,16 +95,16 @@ def add_to_mainDF(batch_file_path, batch_file_name):
             mainDF = pd.concat([mainDF, run_info.to_frame().T], ignore_index=True, sort=False)
             print(f"Appended run from {run_data_path} to mainDF.")
     
-    if mainDF.duplicated(subset=' pblogFilename').any() : #Checking for duplicates and asking for input to continue
+    if mainDF.dropna(subset=['run_data_path']).duplicated(subset='run_data_path').any(): #Checking for duplicates and asking for input to continue
         print("after appending these runs, mainDF has duplicate runs:")
         usr_input = input("Type; 'N' to exit without importing, 'R' to replace duplicates with new entries, if no entry defaults to keep original mainDF entries : ")
         if usr_input.lower() == 'n':
             sys.exit(0)
         elif usr_input.lower() == 'r':
-            mainDF = mainDF.drop_duplicates(subset=' pblogFilename', keep='last')
+            mainDF = mainDF.drop_duplicates(subset='run_data_path', keep='last')
         else:
             print('Defaulting to keeping original mainDF entries, new duplicates will be discarded.')
-            mainDF = mainDF.drop_duplicates(subset=' pblogFilename', keep='first')
+            mainDF = mainDF.drop_duplicates(subset='run_data_path', keep='first')
         return
 
 
@@ -115,7 +127,16 @@ def batch_filepath_sourcing(batch_file_name):
     if not found_paths:
         raise FileNotFoundError(f"'{batch_file_name}' not found under {search_path_starting}")
 
-    return found_paths[-1] 
+    if len(found_paths) == 1:
+        return found_paths[0]
+    print(f"Multiple paths found for '{batch_file_name}':")
+    for i, p in enumerate(found_paths):
+        print(f"  [{i}] {p}")
+    while True:
+        user_input = input(f"Enter index [0-{len(found_paths)-1}] to select: ").strip()
+        if user_input.isdigit() and 0 <= int(user_input) < len(found_paths):
+            return found_paths[int(user_input)]
+        print("Invalid input, please enter a valid index.") 
 
 def add_datalog(file_name):
     """
@@ -195,10 +216,81 @@ def get_sub_batches_paths(batch_names, base_path):
     
     return sub_batches_paths
 
-def import_hyak_batches(batch_names, base_path=r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData\HYAK2"):
+def check_hyak_overlaps(sub_batches_paths):
+    """
+    Reports any naming collisions across three levels for a resolved list of HYAK sub-batch paths:
+      Level 1 - batch_results folder names  (basename of each sub_batch_path)
+      Level 2 - pblogFilename values        (relative run dir, from batch_runs.log)
+      Level 3 - CSV filenames               (the actual .csv file inside each pblog dir)
+    Only reports; does not block importing.
+    """
+    # --- Level 1: batch_results folder name overlaps ---
+    batch_results_map = defaultdict(list)
+    for sub_batch_path in sub_batches_paths:
+        folder_name = os.path.basename(sub_batch_path)
+        batch_results_map[folder_name].append(sub_batch_path)
+
+    batch_results_overlaps = {k: v for k, v in batch_results_map.items() if len(v) > 1}
+    if batch_results_overlaps:
+        print(f"\n[overlap check] WARNING: {len(batch_results_overlaps)} overlapping batch_results folder name(s) found:\n")
+        for folder_name, paths in batch_results_overlaps.items():
+            print(f"  '{folder_name}' appears in {len(paths)} locations:")
+            for p in paths:
+                print(f"    {p}")
+    else:
+        print("\n[overlap check] No batch_results folder name overlaps found.")
+
+    # --- Level 2 & 3: pblogFilename and CSV filename overlaps ---
+    # Both are collected in a single pass over the logs to avoid reading files twice
+    pblog_map = defaultdict(list)   # pblogFilename  -> [sub_batch_paths]
+    csv_map   = defaultdict(list)   # csv filename   -> [full pblog dir paths]
+
+    for sub_batch_path in sub_batches_paths:
+        batch_run_logs_path = os.path.join(sub_batch_path, 'batch_runs.log')
+        if not os.path.exists(batch_run_logs_path):
+            print(f"[overlap check] WARNING: batch_runs.log not found at {batch_run_logs_path}, skipping.")
+            continue
+
+        batch_run_logs = pd.read_csv(batch_run_logs_path, comment='#')
+        for _, run_row in batch_run_logs.iterrows():
+            pblog_name = str(run_row[' pblogFilename']).strip()
+            pblog_map[pblog_name].append(sub_batch_path)
+
+            # Level 3: inspect the actual pblog directory for CSV filenames
+            run_pblogdir_path = os.path.normpath(os.path.join(sub_batch_path, pblog_name))
+            if os.path.exists(run_pblogdir_path):
+                csv_files = [f for f in os.listdir(run_pblogdir_path) if f.endswith('.csv')]
+                for csv_file in csv_files:
+                    csv_map[csv_file].append(run_pblogdir_path)
+
+    # Report Level 2
+    pblog_overlaps = {k: v for k, v in pblog_map.items() if len(v) > 1}
+    if pblog_overlaps:
+        print(f"\n[overlap check] WARNING: {len(pblog_overlaps)} overlapping pblogFilename(s) found across sub-batches:\n")
+        # for pblog_name, paths in pblog_overlaps.items():
+        #     print(f"  '{pblog_name}' appears in {len(paths)} sub-batches:")
+        #     for p in paths:
+        #         print(f"    {p}")
+    else:
+        print("\n[overlap check] No pblogFilename overlaps found across sub-batches.")
+
+    # Report Level 3
+    csv_overlaps = {k: v for k, v in csv_map.items() if len(v) > 1}
+    if csv_overlaps:
+        print(f"\n[overlap check] WARNING: {len(csv_overlaps)} overlapping CSV filename(s) found:\n")
+        # for csv_name, paths in csv_overlaps.items():
+        #     print(f"  '{csv_name}' appears in {len(paths)} pblog directories:")
+        #     for p in paths:
+        #         print(f"    {p}")
+    else:
+        print("\n[overlap check] No CSV filename overlaps found.")
+
+def import_hyak_batches(batch_names, base_path=r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData\HYAK2\wec_logs\batches"):
     sub_batches_paths = get_sub_batches_paths(batch_names, base_path)
+    check_hyak_overlaps(sub_batches_paths)  # Report overlaps before any importing begins
+    input("Press Enter to acknowledge overlaps and continue on...")
     for batch in sub_batches_paths:
-        import_batch(os.path.basename(batch))
+        import_batch(os.path.basename(batch), batch_file_path=batch)
 
     
 ##################TESTING##################
