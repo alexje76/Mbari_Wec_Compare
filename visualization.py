@@ -731,7 +731,16 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 continue
             tokens = part.split(':')
             prefix = tokens[0].strip()
-            numbers = [round(float(x), 4) for x in tokens[1:]]
+            
+            # Try to convert each value to float, skip if it fails
+            numbers = []
+            for x in tokens[1:]:
+                try:
+                    numbers.append(round(float(x), 4))
+                except ValueError:
+                    # Skip non-numeric values like 'default'
+                    continue
+            
             if prefix == 'f':
                 extracted_target.extend(numbers[:1])
             elif prefix == 'Szz':
@@ -742,17 +751,20 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 extracted_target.extend(numbers)
 
         f_val1, *szz_vals1 = extracted_target
-        #f_val1, *szz_vals1 = [round(float(x), 4) for part in target_str.split(';') if ':' in part for x in part.split(':')[1:(2 if part.startswith('f') else 29)]]
-
-        #print(f"fval1: {f_val1}, szz_vals1:{szz_vals1}")
+        
         # Extract and round the comparison values for the whole reference DataFrame
-        # We split the string column, extract the values, and expand them into new temporary columns
         ref_parts = full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().str.split(';')
         ref_parts_backup = full_names_spectrums_here['IncWaveBackupName'].str.strip().str.split(';')
-       # print(f"ref parts{ref_parts}")
-        #print(f"ref parts backup: {ref_parts_backup}")
 
         def extract_rounded(row_parts):
+            """
+            Safely extracts and rounds numeric values from spectrum parameter strings.
+            Skips non-numeric values like 'default'.
+            
+            Handles both old and new formats:
+            - Old: Bretschneider;Hs:2.0;Tp:14.0
+            - New: Bretschneider;Hs:1.5987;Tp:7.8771;n_phases:default;spreading_deg:default;spreading_factor:default
+            """
             if not isinstance(row_parts, list):
                 return []
                 
@@ -764,7 +776,15 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 # Split prefix from its data values
                 tokens = part.split(':')
                 prefix = tokens[0].strip()
-                numbers = [round(float(x), 4) for x in tokens[1:]]
+                
+                # Try to convert each value to float, skip if it fails
+                numbers = []
+                for x in tokens[1:]:
+                    try:
+                        numbers.append(round(float(x), 4))
+                    except ValueError:
+                        # Skip non-numeric values like 'default'
+                        continue
                 
                 # Extract exactly what is required based on the parameter type
                 if prefix == 'f':
@@ -775,13 +795,52 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     vals.extend(non_zeros[:5])
                 else:
                     vals.extend(numbers)      # Grab everything for Hs, Tp, A, T, etc.
-                    
+                        
             return vals
         # def extract_rounded(row_parts):
         #     # Extracts 1 'f' and 3 'Szz' values, returning a flat list
         #     vals = [round(float(x), 4) for part in row_parts if ':' in part 
         #            for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
         #     return vals
+
+        #Debugging section that is now unused.
+        # # Add these prints RIGHT AFTER the extract_rounded function is defined
+        # # and BEFORE the "Apply extraction to the whole column" comment
+
+        # print(f"\n=== DEBUGGING SPECTRUM {i} ===")
+        # print(f"Target string: {target_str}")
+        # print(f"Extracted target: {[f_val1] + szz_vals1}")
+
+        # # Apply extraction to the whole column
+        # extracted_data = ref_parts.apply(extract_rounded)
+        # extracted_data_backup = ref_parts_backup.apply(extract_rounded)
+
+        # # NEW: Print all extracted reference values to compare
+        # print(f"\nAll extracted reference values (first 10):")
+        # for idx, extracted_val in enumerate(extracted_data.head(10)):
+        #     print(f"  Row {idx}: {extracted_val}")
+
+        # print(f"\nLooking for match: {[f_val1] + szz_vals1}")
+
+        # # Filter the DataFrame
+        # matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
+        # matches_backup = full_names_spectrums_here[extracted_data_backup.apply(lambda x: x == [f_val1] + szz_vals1)]
+
+        # print(f"Matches found: {len(matches)}")
+        # print(f"Matches (backup) found: {len(matches_backup)}")
+
+        # # NEW: Print closest partial matches
+        # if matches.empty and matches_backup.empty:
+        #     print(f"\nNo exact matches. Checking for partial/near matches:")
+        #     for idx, extracted_val in enumerate(extracted_data):
+        #         # Check if first element (f value) matches
+        #         if extracted_val and extracted_val[0] == f_val1:
+        #             print(f"  Row {idx} has matching f value:")
+        #             print(f"    Reference: {extracted_val}")
+        #             print(f"    Target:    {[f_val1] + szz_vals1}")
+        #             print(f"    Szz match: {extracted_val[1:] == szz_vals1}")
+
+
 
         # Apply extraction to the whole column
         extracted_data = ref_parts.apply(extract_rounded)
@@ -807,6 +866,8 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:4]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "BretHFP":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                case "BretSFP":
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "spotter":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
                 case "regular":
@@ -825,6 +886,8 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     case "bretschneider":
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:4]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                     case "BretHFP":
+                        display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                    case "BretSFP":
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                     case "spotter":
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
@@ -1397,18 +1460,26 @@ def wrap_title(*args):
     return '\n'.join(textwrap.wrap(args[0], width))
 ##################TESTING##################
 def main():
-    spectrum_nums=[104, 105, 192, 271]
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=8, period=False, types=['spotter'], n_cols=4, metric_sv='energy', cumsum=False)
-    # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
-    # # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
+    batch_names = ['batch_spotter_bret_30_37374379_20260720', 'batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722']
+    
+    resolved_batches = run_analytics.resolve_hyak_batch_names(batch_names)
+    batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
 
-    # spectrum_nums = spectrums.spectrum_list()
-    # # #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
-    # plot_overlayed_spectrums((spectrum_nums), plots_per_page=9, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
+    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='avg_by_spec', **batch_kwargs)
+    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales', **batch_kwargs)
 
-    # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+    # spectrum_nums=[104, 105, 192, 271]
+    # plot_overlayed_spectrums((spectrum_nums), plots_per_page=8, period=False, types=['spotter'], n_cols=4, metric_sv='energy', cumsum=False)
+    # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+    # # # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
+
+    # # spectrum_nums = spectrums.spectrum_list()
+    # # # #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
+    # # plot_overlayed_spectrums((spectrum_nums), plots_per_page=9, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
+
+    # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     plt.show()
 ##################DONE TESTING##################
 if __name__ == '__main__':
