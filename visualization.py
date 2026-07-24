@@ -590,6 +590,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
         "spotter": {"label": "Spotter", "color": spectrums.get_color_for_spectrum_type("spotter"), "fmt": "scatter", "alpha": 0.7, "marker": "o"},
         "bretschneider": {"label": "Bretschneider", "color": spectrums.get_color_for_spectrum_type("bretschneider"), "fmt": "plot"},
         "BretHFP": {"label": "BretHFP", "color": spectrums.get_color_for_spectrum_type("BretHFP"), "fmt": "plot"},
+        "BretSFP": {"label": "BretSFP", "color": spectrums.get_color_for_spectrum_type("BretSFP"), "fmt": "plot"},
         "jonswap": {"label": "Jonswap", "color": spectrums.get_color_for_spectrum_type("jonswap"), "fmt": "plot", "marker": "x"},
         "regular": {"label": "Regular", "color": spectrums.get_color_for_spectrum_type("regular"), "fmt": "vline", "alpha": 0.65},
         "regularHFP": {"label": "RegularHFP", "color": spectrums.get_color_for_spectrum_type("regularHFP"), "fmt": "vline", "alpha": 0.65}
@@ -715,8 +716,21 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         if frames_to_concat:
             function_data = pd.concat(frames_to_concat, ignore_index=True)
 
+    print(function_data)
+    function_data = function_data[function_data[' SimReturnCode'] == 0]
+
     spectrum = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
     full_names_spectrums_here = spectrums.read_spectrums()
+
+    filtered_spectrums = full_names_spectrums_here[full_names_spectrums_here['spectrum_id'] == 1115]
+    print(filtered_spectrums)
+    print(filtered_spectrums['spectrum_type'])
+
+    spectrum_summary = spectrums.report_spectrum_types(full_names_spectrums_here)
+    print(spectrum_summary)
+    input('emter')
+   
+    print(full_names_spectrums_here['spectrum_type'].unique())
 
     for i, spec in enumerate(spectrum): #Adding the titles for the plots
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
@@ -852,14 +866,39 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
         # Filter the DataFrame
         #Compare the entire extracted list to our target list [f, szz1, szz2, szz3]
+        print(f"DEBUG: Extracted target: {[f_val1] + szz_vals1}")
+        print(f"DEBUG: First 10 extracted rows: {extracted_data.head(10).tolist()}")
+
         matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
         matches_backup = full_names_spectrums_here[extracted_data_backup.apply(lambda x: x == [f_val1] + szz_vals1)]
         #print(f"matches{matches}")
         #print(f"matches_backup{matches_backup}")
 
+        # Add the code here to count and debug matching rows  #DEBUGGING MATCHING ROWS
+        # Count the number of matching rows
+        num_matches = matches.shape[0]
+        num_matches_backup = matches_backup.shape[0]
+
+        print(f"DEBUG: Number of matching rows in primary matches: {num_matches}")
+        print(f"DEBUG: Number of matching rows in backup matches: {num_matches_backup}")
+
+        # If there are multiple rows, group by spectrum_type and count
+        if num_matches > 1:
+            print("DEBUG: Multiple matching rows in primary matches:")
+            print(matches['spectrum_type'].value_counts())
+        if num_matches_backup > 1:
+            print("DEBUG: Multiple matching rows in backup matches:")
+            print(matches_backup['spectrum_type'].value_counts())
+
+
+
+
         #Safely extract the first (and presumably only) match
         if not matches.empty:
+            print('matchingrow')
             matching_row = matches.iloc[0]
+
+            print(f"DEBUG: spectrum_type in matching_row: {matching_row['spectrum_type']}")
 
             match matching_row['spectrum_type']:
                 case "bretschneider":
@@ -867,6 +906,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 case "BretHFP":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "BretSFP":
+                    print('BretSFP')
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "spotter":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
@@ -878,6 +918,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
             spectrum_type = matching_row['spectrum_type']
         else:
+            print('matchingbackup')
             # This block runs if the string search found nothing, and searches the backup
             if not matches_backup.empty:
                 matching_row = matches_backup.iloc[0]
@@ -888,6 +929,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     case "BretHFP":
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                     case "BretSFP":
+                        print('BretSFP')
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                     case "spotter":
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
@@ -909,6 +951,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
 
         #print(f"print disp title{display_title}")
+        print(f'spectrum type {spectrum_type}: id: {matching_row['spectrum_id']}: disp tit {str(display_title)}')
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'display_title'] = str(display_title)
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_id'] = matching_row['spectrum_id']
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_type'] = spectrum_type
@@ -1102,20 +1145,20 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             
             # Pinpoint the true spotter baseline by checking the spectrum_type column first
             spec_dat_spot = group_data[group_data['spectrum_type'].str.lower() == 'spotter']
-            
+
             if not spec_dat_spot.empty:
                 # Safely grab the unique string identifier for downstream code requirements
                 spec_spot = spec_dat_spot[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]
             else:
-                # Fallback: Check for 'custom' string names (handles older data without 'spotter' in spectrum_type)
-                custom_specs = [s for s in spec_list if 'custom' in s.lower()]
-                if custom_specs:
-                    spec_spot = custom_specs[0]
-                    spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
-                else:
-                    # Ultimate fallback if neither check matches
-                    spec_spot = spec_list[0]
-                    spec_dat_spot = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot]
+                # No spotter and no valid custom fallback — skip entirely
+                spectrum_ids = group_data['spectrum_id'].unique().tolist()
+                print(
+                    f"\n[WARNING] Group '{prefix}' (spectrum IDs: {spectrum_ids}) has no "
+                    f"spotter spectrum. Skipping subplot — this group will not contribute "
+                    f"bars to the chart."
+                )
+                input("Press Enter to continue...")
+                continue
 
             # Process the extracted baseline data
             avg_data_spot = spec_dat_spot.groupby(' ScaleFactor')[metric].mean().reset_index()
@@ -1208,6 +1251,219 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
         #ymax_global = max(ymax.values())
         print(f'ymax: {ymax}')
+    elif plot_type == 'cor_max_diff_violin':
+        # ── Group spectra by spectrum_id prefix, exactly as in cor_max_diff_by_spec ──
+        groups = defaultdict(list)
+        for spec in spectrum:
+            sample_name = str(
+                function_data[
+                    function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec
+                ]['display_title'].iloc[0]
+            )
+            group_key = sample_name.split(',', 1)[0]
+            groups[group_key].append(spec)
+
+        # Accumulates one pct-diff value per group, per category label
+        data_by_category = defaultdict(list)   # {label: [pct_diff, ...]}
+        category_order   = []                  # insertion-ordered unique labels
+        category_colors  = {}                  # {label: color}
+
+        for prefix, spec_list in groups.items():
+
+            # ── Identify spotter baseline (mirrors cor_max_diff_by_spec exactly) ──
+            group_data    = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].isin(spec_list)]
+            spec_dat_spot = group_data[group_data['spectrum_type'].str.lower() == 'spotter']
+
+            if not spec_dat_spot.empty:
+                spec_spot = spec_dat_spot[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]
+            else:
+                # No spotter and no valid custom fallback — skip entirely
+                spectrum_ids = group_data['spectrum_id'].unique().tolist()
+                print(
+                    f"\n[WARNING] Group '{prefix}' (spectrum IDs: {spectrum_ids}) has no "
+                    f"spotter spectrum. Skipping — this group will not contribute data points "
+                    f"to the violin."
+                )
+                input("Press Enter to continue...")
+                continue
+
+            avg_data_spot = spec_dat_spot.groupby(' ScaleFactor')[metric].mean().reset_index()
+
+            if avg_data_spot.empty:
+                print(f"\n[WARNING] Baseline data empty for group '{prefix}'. Skipping group.")
+                input("Press Enter to continue...")
+                continue
+
+            spot_max_val = avg_data_spot[metric].max()
+
+            # ── Build reference damping rows (optional, controlled by damping_ref kwarg) ──
+            ref_rows = []
+            if 'damping_ref' in kwargs and kwargs['damping_ref'] == 'all_scales':
+                for _, row in avg_data_spot.iterrows():
+                    sf = row[' ScaleFactor']
+                    ref_rows.append({
+                        ' ScaleFactor': sf,
+                        metric:         row[metric],
+                        'display_title': f'Damping {sf}',
+                        'color':         'gray'
+                    })
+            elif 'damping_ref' in kwargs:
+                ref_scale = kwargs['damping_ref']
+                ref_match = avg_data_spot[avg_data_spot[' ScaleFactor'] == ref_scale]
+                if ref_match.empty:
+                    print(f"\n[WARNING] Ref damping scale {ref_scale} not found in group '{prefix}'. Skipping ref for this group.")
+                    input("Press Enter to continue...")
+                else:
+                    ref_rows.append({
+                        ' ScaleFactor': ref_scale,
+                        metric:         ref_match[metric].iloc[0],
+                        'display_title': f'Ref: Scale {ref_scale}',
+                        'color':         'k'
+                    })
+
+            # ── Build per-spectrum rows (mirrors cor_max_diff_by_spec) ──
+            spec_rows = []
+            for spec in spec_list:
+                spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
+                avg_data  = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
+
+                if avg_data.empty:
+                    print(f"\n[WARNING] No averaged data for spectrum '{spec}' in group '{prefix}'. Skipping.")
+                    input("Press Enter to continue...")
+                    continue
+
+                max_energy_damp = avg_data.nlargest(1, columns=[metric])[' ScaleFactor'].iloc[0]
+                max_energy_row  = avg_data_spot[avg_data_spot[' ScaleFactor'] == max_energy_damp].copy()
+
+                if max_energy_row.empty:
+                    print(f"\n[WARNING] Scale factor {max_energy_damp} from spectrum '{spec}' not found in spotter "
+                          f"data for group '{prefix}'. Skipping this spectrum.")
+                    input("Press Enter to continue...")
+                    continue
+
+                sf_val   = max_energy_row[' ScaleFactor'].iloc[0]
+                new_vals  = spec_data.loc[spec_data[' ScaleFactor'] == sf_val, ['display_title', 'color']].iloc[0]
+                spec_type = spec_data['spectrum_type'].iloc[0]    
+
+                spec_rows.append({
+                    ' ScaleFactor':  sf_val,
+                    metric:          max_energy_row[metric].iloc[0],
+                    'display_title': new_vals['display_title'],
+                    'color':         new_vals['color'],
+                    'spectrum_type': spec_type                       
+})
+
+            # ── Accumulate pct-diffs into per-category lists ──
+            all_rows       = ref_rows + spec_rows
+            seen_in_group  = set()
+
+            for row in all_rows:
+                title = row['display_title']
+                if 'Damping' in title or 'Ref:' in title:
+                    label = title
+                elif 'spectrum_type' in row:
+                    stype = row['spectrum_type']
+                    combined = stype + '|' + title  # check both spectrum_type AND display_title
+                    if 'Bretschneider' in stype or 'bret' in stype.lower() or 'bret' in title.lower():
+                        if 'HFP' in combined:
+                            label = 'BretHFP'
+                        elif 'SFP' in combined:
+                            label = 'BretSFP'
+                        else:
+                            label = 'Bretschneider'
+                    else:
+                        label = stype
+                elif ',' in title:
+                    label = title.split(',', 1)[-1].strip()
+                else:
+                    label = title
+
+                pct_diff = ((row[metric] - spot_max_val) / spot_max_val) * 100
+
+                if label not in category_order:
+                    category_order.append(label)
+                    category_colors[label] = row['color']
+
+                data_by_category[label].append(pct_diff)
+                seen_in_group.add(label)
+
+            # Warn if a previously established category is absent from this group
+            for label in category_order:
+                if label not in seen_in_group:
+                    print(f"\n[WARNING] Category '{label}' is missing from group '{prefix}'. "
+                          f"This group will not contribute a data point for that violin.")
+                    input("Press Enter to continue...")
+
+        # Final count check across all groups
+        n_groups = len(groups)
+        for label in category_order:
+            n_vals = len(data_by_category[label])
+            if n_vals < n_groups:
+                print(f"\n[WARNING] '{label}' only has {n_vals}/{n_groups} data points — "
+                      f"some groups were skipped.")
+                input("Press Enter to continue...")
+
+        # ── Draw violin plot ──────────────────────────────────────────────────────────
+        fig, ax = plt.subplots(figsize=(max(8, len(category_order) * 1.8), 6), constrained_layout=True)
+
+        positions    = list(range(len(category_order)))
+        violin_data  = [data_by_category[label] for label in category_order]
+        colors       = [category_colors[label]   for label in category_order]
+
+        # Only draw a violin if there are at least 2 points; fall back to a single scatter otherwise
+        drawable     = [i for i, v in enumerate(violin_data) if len(v) >= 2]
+        single_point = [i for i, v in enumerate(violin_data) if len(v) <  2]
+
+        if drawable:
+            parts = ax.violinplot(
+                [violin_data[i] for i in drawable],
+                positions=[positions[i] for i in drawable],
+                showmeans=True,
+                showmedians=True,
+                showextrema=True
+            )
+            for pc, idx in zip(parts['bodies'], drawable):
+                pc.set_facecolor(colors[idx])
+                pc.set_edgecolor('black')
+                pc.set_alpha(0.7)
+            for partname in ('cbars', 'cmins', 'cmaxes', 'cmeans', 'cmedians'):
+                if partname in parts:
+                    parts[partname].set_edgecolor('black')
+                    parts[partname].set_linewidth(1.2)
+
+            for i, idx in enumerate(drawable):
+                data = violin_data[idx]
+                mean_val = np.mean(data)
+                median_val = np.median(data)
+                ax.annotate(f"Mean: {mean_val:.2f}", xy=(positions[idx], mean_val), xytext=(-15, 10),
+                            textcoords='offset points', fontsize=8, color='blue', arrowprops=dict(arrowstyle='->', color='blue'))
+                ax.annotate(f"Median: {median_val:.2f}", xy=(positions[idx], median_val), xytext=(-15, -10),
+                            textcoords='offset points', fontsize=8, color='green', arrowprops=dict(arrowstyle='->', color='green'))
+
+        # ── Overlay individual data points (jittered) ────────────────────────────────
+        rng = np.random.default_rng(seed=42)
+        for i, vals in enumerate(violin_data):
+            jitter = rng.uniform(-0.06, 0.06, size=len(vals))
+            ax.scatter(
+                np.full(len(vals), i) + jitter,
+                vals,
+                color='black',
+                s=40,
+                zorder=3,
+                alpha=0.8,
+                label='_nolegend_'
+            )
+
+        # Single-point categories get a prominent marker with a warning annotation
+        for i in single_point:
+            ax.annotate('n=1', xy=(i, violin_data[i][0]), xytext=(0, 6),
+                        textcoords='offset points', ha='center', fontsize=7, color='dimgray')
+
+        ax.set_xticks(positions)
+        ax.set_xticklabels(category_order, rotation=45, ha='right')
+        ax.set_ylabel('Percent Difference from Spotter Peak Energy (%)')
+        ax.axhline(y=0, linewidth=1, color='k', linestyle='--', alpha=0.6)
+        ax.grid(True, alpha=0.3, axis='y')
     fig.suptitle(wrap_title(f"Informed Optimal Damping vs {metric} across Spectrums"), fontsize=16)
     fig.supxlabel('Spectrum used', fontsize =12)
 def single_seeds_convergence_analytics(mode='running', **kwargs):
@@ -1460,26 +1716,54 @@ def wrap_title(*args):
     return '\n'.join(textwrap.wrap(args[0], width))
 ##################TESTING##################
 def main():
-    batch_names = ['batch_spotter_bret_30_37374379_20260720', 'batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722']
+    batch_names = ['batch_spotter_bret_30_37374379_20260720', 'batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722'] #FULL SPECTRUMS
     
     resolved_batches = run_analytics.resolve_hyak_batch_names(batch_names)
     batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
 
+    # Add explicitly defined batch names to batch_kwargs
+    additional_batches = {
+        "batch_name": "batch_results_20260213182532",
+        "batch_name2": "batch_results_20260211181904",
+        "batch_name3": "batch_results_20260304113810",
+        "batch_name4": "batch_results_20260315141339",
+        "batch_name5": "batch_results_20260327142504",
+    }
+    batch_kwargs.update(additional_batches)
+
+    ###########TESTING WITH SMALLER SUBSET
+    #batch_names = ['batch_spotter_bret_SFP_30+_37450154_20260721']
+    
+    resolved_batches = run_analytics.resolve_hyak_batch_names(batch_names)
+    print(resolved_batches)
+    batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
+    ###########TESTING WITH SMALLER SUBSET
+
     damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='avg_by_spec', **batch_kwargs)
+    print(batch_kwargs)
     damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales', **batch_kwargs)
+    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_violin', damping_ref='all_scales', **batch_kwargs)
 
-    # spectrum_nums=[104, 105, 192, 271]
-    # plot_overlayed_spectrums((spectrum_nums), plots_per_page=8, period=False, types=['spotter'], n_cols=4, metric_sv='energy', cumsum=False)
-    # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
-    # # # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
+    # #spectrum_nums=[104, 105, 192, 271]
+    # mbari_2022 = [114, 198, 260, 384, 532, 597]
+    # mbari_2022_more = [729, 1239, 52, 363, 901, 270, 712, 803, 444]
+    # mbari_2022_moremorea = [462, 494, 1255, 38]
+    # mbari_2022_moremoreb = [62, 496]
+    # spec_ids_add = mbari_2022 + mbari_2022_more + mbari_2022_moremorea + mbari_2022_moremoreb
+    # spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
+    # spectrum_ids = sorted(spectrum_ids + spec_ids_add)
+    # spectrum_nums = spectrum_ids
+    # #plot_overlayed_spectrums((spectrum_nums), plots_per_page=8, period=False, types=['spotter', 'BretSFP', 'bretscneider'], n_cols=4, metric_sv='energy', cumsum=False)
+    # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+    # # # # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
 
-    # # spectrum_nums = spectrums.spectrum_list()
-    # # # #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
-    # # plot_overlayed_spectrums((spectrum_nums), plots_per_page=9, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
+    # # # spectrum_nums = spectrums.spectrum_list()
+    # # # # #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
+    # # # plot_overlayed_spectrums((spectrum_nums), plots_per_page=9, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
 
-    # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
+    # # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
+    # # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     plt.show()
 ##################DONE TESTING##################
 if __name__ == '__main__':
