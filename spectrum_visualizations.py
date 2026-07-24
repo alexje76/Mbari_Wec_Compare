@@ -47,6 +47,7 @@ def plot_hs_tp(
     highlight_spectrum_types=None,
     spectrum_type_visibility=None,
     base_marker_size=9,
+    mbari_2022=None,
 ):
     """
     Plots spectra as Significant Wave Height vs Frequency.
@@ -61,6 +62,8 @@ def plot_hs_tp(
         remains available in the legend so it can be toggled on.
     base_marker_size : int or float, optional
         Marker size for non-highlighted spectrum types.
+    mbari_2022 : list, optional
+        List of spectrum IDs that have been run. These will have neon green outlines.
 
     Returns
     -------
@@ -68,6 +71,7 @@ def plot_hs_tp(
     """
     highlight_spectrum_types = set(highlight_spectrum_types or [])
     spectrum_type_visibility = spectrum_type_visibility or {}
+    mbari_2022 = set(mbari_2022 or [])
 
     df = get_all_data()
  
@@ -91,34 +95,73 @@ def plot_hs_tp(
         is_highlighted = spectrum_type in highlight_spectrum_types
         style = get_spectrum_type_style(spectrum_type)
 
-        fig.add_trace(
-            go.Scatter(
-                x=subset["frequency_hz"],
-                y=subset["significantWaveHeight"],
-                mode="markers",
-                name=str(spectrum_type),
-                visible=(
-                    True
-                    if spectrum_type_visibility.get(spectrum_type, True)
-                    else "legendonly"
-                ),
-                marker=dict(
-                    color=style["color"],
-                    symbol=style["symbol"],
-                    size=base_marker_size * 2 if is_highlighted else base_marker_size,
-                    opacity=0.9 if is_highlighted else 0.8,
-                    line=dict(width=0.75 if is_highlighted else 0.5, color="black"),
-                ),
-                customdata=subset[["spectrum_id", "peakPeriod"]],
-                hovertemplate=(
-                    "spectrum_id: %{customdata[0]}<br>"
-                    f"spectrum_type: {spectrum_type}<br>"
-                    "frequency: %{x:.4f} Hz<br>"
-                    "peakPeriod: %{customdata[1]:.4f} s<br>"
-                    "significantWaveHeight: %{y}<extra></extra>"
-                ),
+        # Split into run and not-run spectrums
+        subset_not_run = subset[~subset["spectrum_id"].isin(mbari_2022)]
+        subset_run = subset[subset["spectrum_id"].isin(mbari_2022)]
+
+        # Plot not-run spectrums (black outline)
+        if len(subset_not_run) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=subset_not_run["frequency_hz"],
+                    y=subset_not_run["significantWaveHeight"],
+                    mode="markers",
+                    name=str(spectrum_type),
+                    visible=(
+                        True
+                        if spectrum_type_visibility.get(spectrum_type, True)
+                        else "legendonly"
+                    ),
+                    marker=dict(
+                        color=style["color"],
+                        symbol=style["symbol"],
+                        size=base_marker_size * 2 if is_highlighted else base_marker_size,
+                        opacity=0.9 if is_highlighted else 0.8,
+                        line=dict(width=0.75 if is_highlighted else 0.5, color="black"),
+                    ),
+                    customdata=subset_not_run[["spectrum_id", "peakPeriod"]],
+                    hovertemplate=(
+                        "spectrum_id: %{customdata[0]}<br>"
+                        f"spectrum_type: {spectrum_type}<br>"
+                        "frequency: %{x:.4f} Hz<br>"
+                        "peakPeriod: %{customdata[1]:.4f} s<br>"
+                        "significantWaveHeight: %{y}<extra></extra>"
+                    ),
+                    showlegend=True,
+                )
             )
-        )
+
+        # Plot run spectrums (neon green outline)
+        if len(subset_run) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=subset_run["frequency_hz"],
+                    y=subset_run["significantWaveHeight"],
+                    mode="markers",
+                    name=str(spectrum_type),
+                    visible=(
+                        True
+                        if spectrum_type_visibility.get(spectrum_type, True)
+                        else "legendonly"
+                    ),
+                    marker=dict(
+                        color=style["color"],
+                        symbol=style["symbol"],
+                        size=base_marker_size * 2 if is_highlighted else base_marker_size,
+                        opacity=0.9 if is_highlighted else 0.8,
+                        line=dict(width=0.75 if is_highlighted else 0.5, color="#39FF14"),
+                    ),
+                    customdata=subset_run[["spectrum_id", "peakPeriod"]],
+                    hovertemplate=(
+                        "spectrum_id: %{customdata[0]}<br>"
+                        f"spectrum_type: {spectrum_type}<br>"
+                        "frequency: %{x:.4f} Hz<br>"
+                        "peakPeriod: %{customdata[1]:.4f} s<br>"
+                        "significantWaveHeight: %{y}<extra></extra>"
+                    ),
+                    showlegend=(len(subset_not_run) == 0),
+                )
+            )
 
     fig.update_layout(
         title="Significant Wave Height vs Frequency",
@@ -158,6 +201,14 @@ def show_plot_in_window(fig, title="Hs vs Frequency"):
 
 
 def main():
+    mbari_2022 = [114, 198, 260, 384, 532, 597]
+    mbari_2022_more = [729, 1239, 52, 363, 901, 270, 712, 803, 444]
+    mbari_2022_moremorea = [462, 494, 1255, 38]
+    mbari_2022_moremoreb = [62, 496]
+    spec_ids_add = mbari_2022 + mbari_2022_more + mbari_2022_moremorea + mbari_2022_moremoreb
+    spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
+    spectrum_ids = sorted(spectrum_ids + spec_ids_add)
+    
     # Replace these with whichever spectrum types you want to emphasize.
     highlight_types = {
         "BretHFP",
@@ -177,6 +228,7 @@ def main():
     fig = plot_hs_tp(
         highlight_spectrum_types=highlight_types,
         spectrum_type_visibility=spectrum_type_visibility,
+        mbari_2022=spectrum_ids,
     )
 
     # Opens in a standalone window if pywebview is installed.
