@@ -678,14 +678,14 @@ def resolve_hyak_batch_names(hyak_batch_names):
     mainDF = mDF_mgmt.access_mainDF()
     resolved = set()
     for hyak_name in hyak_batch_names:
-        matches = mainDF[mainDF['run_data_path'].str.contains(hyak_name, na=False)]['batch_file_name'].unique()
+        matches = mainDF[mainDF['run_data_path'].str.contains(hyak_name, na=False, regex=False)]['batch_file_name'].unique()
         resolved.update(matches)
     return list(resolved)
 
 
 ##################TESTING##################
 def main():
-    batch_names = ['batch_spotter_bret_30_37374379_20260720', 'batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722']
+    batch_names = ['batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722']
     
     resolved_batches = resolve_hyak_batch_names(batch_names)
     batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
