@@ -732,6 +732,10 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
    
     print(full_names_spectrums_here['spectrum_type'].unique())
 
+    # Place BEFORE the matching loop
+    print("\n[DIAG] Batch files loaded into function_data:")
+    print(function_data['batch_file_name'].unique().tolist())
+    input("Press Enter to continue...")
     for i, spec in enumerate(spectrum): #Adding the titles for the plots
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
 
@@ -866,17 +870,11 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
         # Filter the DataFrame
         #Compare the entire extracted list to our target list [f, szz1, szz2, szz3]
-        print(f"DEBUG: Extracted target: {[f_val1] + szz_vals1}")
-        print(f"DEBUG: First 10 extracted rows: {extracted_data.head(10).tolist()}")
-
         matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
         matches_backup = full_names_spectrums_here[extracted_data_backup.apply(lambda x: x == [f_val1] + szz_vals1)]
-        #print(f"matches{matches}")
-        #print(f"matches_backup{matches_backup}")
 
-        # Add the code here to count and debug matching rows  #DEBUGGING MATCHING ROWS
         # Count the number of matching rows
-        num_matches = matches.shape[0]
+        num_matches = matches.shape[0] #Can be used for debugging
         num_matches_backup = matches_backup.shape[0]
 
         print(f"DEBUG: Number of matching rows in primary matches: {num_matches}")
@@ -889,9 +887,6 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         if num_matches_backup > 1:
             print("DEBUG: Multiple matching rows in backup matches:")
             print(matches_backup['spectrum_type'].value_counts())
-
-
-
 
         #Safely extract the first (and presumably only) match
         if not matches.empty:
@@ -955,8 +950,76 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'display_title'] = str(display_title)
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_id'] = matching_row['spectrum_id']
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_type'] = spectrum_type
+
+        # Store ALL possible spectrum types for ambiguous matches (e.g. Bretschneider vs BretSFP
+        # sharing identical Hs/Tp). Used downstream to assign a data point to every matching
+        # category rather than picking iloc[0] arbitrarily.
+        if not matches.empty:
+            all_possible_types = matches['spectrum_type'].unique().tolist()
+        elif not matches_backup.empty:
+            all_possible_types = matches_backup['spectrum_type'].unique().tolist()
+        else:
+            all_possible_types = [spectrum_type]
+
+        if len(all_possible_types) > 1:
+            print(f"\n[INFO] Ambiguous match for spectrum index {i}: "
+                  f"string maps to multiple types {all_possible_types}. "
+                  f"Will contribute a data point to each category in violin/bar plots.")
+
+        function_data.loc[
+            function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec,
+            'possible_spectrum_types'
+        ] = '|'.join(str(t) for t in all_possible_types)
+
         #End of the code section for adding the titles
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'color'] = spectrums.get_color_for_spectrum_type(matching_row['spectrum_type'])
+
+    # Place AFTER the matching loop
+    # Check 1: What spectrum strings were actually assigned to spectrum_id 1239?
+    print("\n[DIAG] All spectrum strings assigned to spectrum_id 1239 after matching:")
+    print(function_data[function_data['spectrum_id'] == 1239.0][
+        [' IncWaveSpectrumType;IncWaveSpectrumParams', 'spectrum_type', 'possible_spectrum_types']
+    ].drop_duplicates())
+
+    # Check 2: Where did the Custom rows in those batch files actually end up?
+    batch_names = [kwargs[k] for k in batch_keys]
+    print("\n[DIAG] Custom rows from loaded batches and their assigned spectrum_ids:")
+    print(function_data[
+        (function_data['batch_file_name'].isin(batch_names)) &
+        (function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('Custom', case=False, na=False))
+    ][['spectrum_id', 'spectrum_type', 'possible_spectrum_types']].drop_duplicates())
+    input("Press Enter to continue...")
+    # Look up spectrum 1239's spotter entry directly from the CSV
+    spotter_1239 = full_names_spectrums_here[
+        (full_names_spectrums_here['spectrum_id'] == 1239) &
+        (full_names_spectrums_here['spectrum_type'].str.lower() == 'spotter')
+    ]
+
+    if spotter_1239.empty:
+        print("\n[DIAG] Spectrum 1239 has NO spotter entry in the spectrums CSV at all.")
+        print("       This confirms it was never intended to have a spotter run.")
+    else:
+        print("\n[DIAG] Spectrum 1239 spotter entry found in CSV:")
+        print(spotter_1239[['spectrum_id', 'spectrum_type', 'significantWaveHeight', 'peakPeriod']])
+        print("\n[DIAG] Checking if its f/Szz signature matches any other spectrum in the CSV...")
+        
+        # Extract the backup string for 1239's spotter
+        backup_1239 = spotter_1239['IncWaveBackupName'].iloc[0]
+        ref_parts_backup = full_names_spectrums_here['IncWaveBackupName'].str.strip().str.split(';')
+        
+        # Reuse extract_rounded to get the signature
+        target_parts = backup_1239.strip().split(';')
+        target_extracted = extract_rounded(target_parts)
+        
+        # Find all CSV rows that match this signature
+        all_matches = full_names_spectrums_here[
+            ref_parts_backup.apply(extract_rounded).apply(lambda x: x == target_extracted)
+        ]
+        print(f"\n[DIAG] CSV rows matching 1239 spotter f/Szz signature:")
+        print(all_matches[['spectrum_id', 'spectrum_type']])
+
+    input("Press Enter to continue...")
+
 
     # Create a mapping of the unique spectrum values to their display titles
     title_map = function_data.set_index(' IncWaveSpectrumType;IncWaveSpectrumParams')['display_title'].to_dict()
@@ -973,6 +1036,29 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
    #spectrum = sorted(spectrum, key=sort_by_embedded_id)
     spectrum = sorted(spectrum, key=lambda x: sort_by_embedded_id(title_map.get(x, "")))
 
+    debug_rows = function_data[function_data['spectrum_id'] == 1239.0]
+    print("\n[DIAG] Post-match function_data rows for spectrum_id 1239:")
+    print(debug_rows[[
+        'spectrum_type',
+        'possible_spectrum_types',
+        ' IncWaveSpectrumType;IncWaveSpectrumParams'
+    ]].drop_duplicates())
+    input("Press Enter to continue...")
+    # Find where the Custom;f:... rows for the 1239 batch actually ended up after matching
+    debug_custom = function_data[
+        function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.startswith('Custom', na=False)
+    ]
+    print("\n[DIAG] All Custom;f:... rows post-match (spectrum_id and type they were assigned):")
+    print(debug_custom[[
+        'spectrum_id',
+        'spectrum_type',
+        'possible_spectrum_types',
+        'display_title',
+        ' IncWaveSpectrumType;IncWaveSpectrumParams'
+    ]].drop_duplicates(subset=[
+        'spectrum_id', 'spectrum_type', 'possible_spectrum_types'
+    ]))
+    input("Press Enter to continue...")
 
     if plot_type == 'spectrumindividual':
         # Begin Subplotting
@@ -1144,7 +1230,12 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
             group_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].isin(spec_list)]
             
             # Pinpoint the true spotter baseline by checking the spectrum_type column first
-            spec_dat_spot = group_data[group_data['spectrum_type'].str.lower() == 'spotter']
+            # Use possible_spectrum_types rather than spectrum_type alone, because
+            # ambiguous matching via iloc[0] can incorrectly label a spotter row as
+            # 'bretschneider' in the spectrum_type column when the backup string is shared.
+            spec_dat_spot = group_data[
+                group_data['possible_spectrum_types'].str.lower().str.contains('spotter', na=False)
+            ]
 
             if not spec_dat_spot.empty:
                 # Safely grab the unique string identifier for downstream code requirements
@@ -1203,17 +1294,50 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 # -------------------------
 
                 #Add on the display title and color for the max energy row
-                sf_val = max_energy_row[' ScaleFactor'].iloc[0]
+                sf_val   = max_energy_row[' ScaleFactor'].iloc[0]
                 new_vals = spec_data.loc[spec_data[' ScaleFactor'] == sf_val, ['display_title', 'color']].iloc[0]
                 max_energy_row[['display_title', 'color']] = new_vals.values
 
-                #Add the max energy row to the list for plotting
-                max_energy_rows.append(max_energy_row.iloc[0].to_dict())
+                possible_types_raw = spec_data['possible_spectrum_types'].iloc[0]
+                if pd.notna(possible_types_raw) and '|' in str(possible_types_raw):
+                    possible_types = str(possible_types_raw).split('|')
+                else:
+                    possible_types = [spec_data['spectrum_type'].iloc[0]]
+
+                for p_type in possible_types:
+                    p_color = (spectrums.get_color_for_spectrum_type(p_type)
+                               if len(possible_types) > 1
+                               else new_vals['color'])
+                    row_dict = max_energy_row.iloc[0].to_dict()
+                    row_dict['color']         = p_color
+                    row_dict['spectrum_type'] = p_type
+                    max_energy_rows.append(row_dict)
 
             # for row in max_energy_rows:
             #     print(f"for each case: {row['display_title']}: {row[metric]}, {max_energy_row_spot[metric].iloc[0]}, {(row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0]}")
 
             #ymax[prefix] = max(((row[metric]-max_energy_row_spot[metric].iloc[0])/max_energy_row_spot[metric].iloc[0]) for row in max_energy_rows) #TODO: Use ymax to change limits of chart
+            
+            # ── Deduplicate max_energy_rows ───────────────────────────────────────────
+            # Same physical run can appear twice if two spectrum strings are both
+            # ambiguous and map to the same type. Deduplicate on (spectrum_type,
+            # ScaleFactor, metric value).
+            seen_energy_rows = set()
+            deduped_energy_rows = []
+            # Build a parallel dict to look up display_title by key for false-merge detection
+            key_to_title = {}
+            for row in max_energy_rows:
+                key = (row['spectrum_type'], row[' ScaleFactor'], round(row[metric], 8))
+                if key not in seen_energy_rows:
+                    seen_energy_rows.add(key)
+                    key_to_title[key] = row['display_title']
+                    deduped_energy_rows.append(row)
+                else:
+                    print(f"\n[INFO] Duplicate suppressed: type '{row['spectrum_type']}' "
+                          f"at ScaleFactor {row[' ScaleFactor']} already counted for "
+                          f"group '{prefix}'. Same physical run via ambiguous string match.")
+            max_energy_rows = deduped_energy_rows
+            
             all_rows = []
             if locals().get('all_scale_rows') is not None:
                 raw_all_scale_rows = locals().get('all_scale_rows')
@@ -1272,10 +1396,25 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
 
             # ── Identify spotter baseline (mirrors cor_max_diff_by_spec exactly) ──
             group_data    = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].isin(spec_list)]
-            spec_dat_spot = group_data[group_data['spectrum_type'].str.lower() == 'spotter']
+            # Use possible_spectrum_types rather than spectrum_type alone, because
+            # ambiguous matching via iloc[0] can incorrectly label a spotter row as
+            # 'bretschneider' in the spectrum_type column when the backup string is shared.
+            spec_dat_spot = group_data[
+                group_data['possible_spectrum_types'].str.lower().str.contains('spotter', na=False)
+            ]
 
             if not spec_dat_spot.empty:
                 spec_spot = spec_dat_spot[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]
+                unique_spotter_strings = spec_dat_spot[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
+                if len(unique_spotter_strings) > 1:
+                    print(f"\n[WARNING] Group '{prefix}' has {len(unique_spotter_strings)} distinct "
+                          f"spotter spectrum strings. Pinning to first: '{spec_spot}'. "
+                          f"Others ignored: {unique_spotter_strings[1:].tolist()}")
+                    input("Press Enter to continue...")
+                # Pin spec_dat_spot to the single chosen spotter string
+                spec_dat_spot = spec_dat_spot[
+                    spec_dat_spot[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec_spot
+                ]
             else:
                 # No spotter and no valid custom fallback — skip entirely
                 spectrum_ids = group_data['spectrum_id'].unique().tolist()
@@ -1342,18 +1481,51 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     continue
 
                 sf_val   = max_energy_row[' ScaleFactor'].iloc[0]
-                new_vals  = spec_data.loc[spec_data[' ScaleFactor'] == sf_val, ['display_title', 'color']].iloc[0]
-                spec_type = spec_data['spectrum_type'].iloc[0]    
+                new_vals  = spec_data.loc[spec_data[' ScaleFactor'] == sf_val, ['display_title', 'color']].iloc[0]  
 
-                spec_rows.append({
-                    ' ScaleFactor':  sf_val,
-                    metric:          max_energy_row[metric].iloc[0],
-                    'display_title': new_vals['display_title'],
-                    'color':         new_vals['color'],
-                    'spectrum_type': spec_type                       
-})
+                possible_types_raw = spec_data['possible_spectrum_types'].iloc[0]
+                if pd.notna(possible_types_raw) and '|' in str(possible_types_raw):
+                    possible_types = str(possible_types_raw).split('|')
+                else:
+                    possible_types = [spec_data['spectrum_type'].iloc[0]]
+
+                for p_type in possible_types:
+                    # Use the correct color for each type, not just the first-matched one
+                    p_color = (spectrums.get_color_for_spectrum_type(p_type)
+                               if len(possible_types) > 1
+                               else new_vals['color'])
+                    spec_rows.append({
+                        ' ScaleFactor':  sf_val,
+                        metric:          max_energy_row[metric].iloc[0],
+                        'display_title': new_vals['display_title'],
+                        'color':         p_color,
+                        'spectrum_type': p_type
+                    })
 
             # ── Accumulate pct-diffs into per-category lists ──
+
+            # ── Deduplicate spec_rows ─────────────────────────────────────────────────
+            # Two different spectrum strings can represent the same physical run when one
+            # is e.g. Bretschneider;Hs:... and the other is Custom;f:...;Szz:... for the
+            # same spectrum. Both are ambiguous and each adds a point to each matching
+            # category — producing doubles. Deduplicate on (spectrum_type, ScaleFactor,
+            # metric value) which will be identical for the same physical measurement.
+            seen_spec_rows = set()
+            deduped_spec_rows = []
+            # Build a parallel dict to look up display_title by key for false-merge detection
+            key_to_title = {}
+            for row in spec_rows:
+                key = (row['spectrum_type'], row[' ScaleFactor'], round(row[metric], 8))
+                if key not in seen_spec_rows:
+                    seen_spec_rows.add(key)
+                    key_to_title[key] = row['display_title']
+                    deduped_spec_rows.append(row)
+                else:
+                    print(f"\n[INFO] Duplicate suppressed: type '{row['spectrum_type']}' "
+                          f"at ScaleFactor {row[' ScaleFactor']} already counted for "
+                          f"group '{prefix}'. Same physical run via ambiguous string match.")
+            spec_rows = deduped_spec_rows
+
             all_rows       = ref_rows + spec_rows
             seen_in_group  = set()
 
