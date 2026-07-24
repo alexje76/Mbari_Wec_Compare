@@ -597,7 +597,12 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
     }
     
     # If types is None or 'all', use all keys in the models dict
-    selected_types = list(models.keys()) if (types is None or types == 'all') else types
+    if types is None or types == 'all':
+        selected_types = list(models.keys())
+    elif isinstance(types, str):
+        selected_types = [types]  # Convert a single string into a list
+    else:
+        selected_types = types
 
     for start_idx in range(0, total_plots, plots_per_page):
         
@@ -613,7 +618,7 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
         batch = spectrum_nums[start_idx : start_idx + plots_per_page]
         n_rows = (len(batch) + 1) // n_cols
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows), sharey=True)
-        axes = axes.flatten()
+        axes = np.atleast_1d(axes).flatten()
 
         for idx, i in enumerate(batch):
             ax = axes[idx]
@@ -992,7 +997,7 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
     # Look up spectrum 1239's spotter entry directly from the CSV
     spotter_1239 = full_names_spectrums_here[
         (full_names_spectrums_here['spectrum_id'] == 1239) &
-        (full_names_spectrums_here['spectrum_type'].str.lower() == 'spotter')
+        (full_names_spectrums_here['spectrum_type'].str.lower() == 'spotter') 
     ]
 
     if spotter_1239.empty:
