@@ -283,11 +283,14 @@ def _wave_yaml_entry(wave_chunk: list) -> list:
 
     Custom entries write full f / Szz arrays.
     Bretschneider entries write Hs / Tp scalar lists.
+    Includes comments for each spectrum ID and type.
     """
     entries = []
     for w in wave_chunk:
         if w["yaml_key"] == "Custom":
             entries.append({
+                # Add YAML comment for Custom spectrum - It leaves Null as an artifact and this was chosen to be better than swapping from PyYAML
+                f"# Spectrum ID {w['spectrum_index']} of type {w['internal_type']}": None, 
                 "Custom": {
                     "f":   w["f"],
                     "Szz": w["Szz"],
@@ -295,6 +298,8 @@ def _wave_yaml_entry(wave_chunk: list) -> list:
             })
         elif w["yaml_key"] == "Bretschneider":
             entries.append({
+                # Add YAML comment for Bretschneider spectrum
+                f"# Spectrum ID {w['spectrum_index']} of type {w['internal_type']}": None,
                 "Bretschneider": {
                     "Hs": [w["Hs"]],
                     "Tp": [w["Tp"]],
@@ -385,7 +390,7 @@ def check_inputs(
 
 def main():
     # ── Overhead / timing ────────────────────────────────────────────────────
-    batch_name            = "spotter_bret_SFP_30+"
+    batch_name            = "Test" #"spotter_bret_SFP_30+"
     max_time              = "4:00:00"   # SLURM format [D-]HH:MM:SS
     time_per_job          = 30          # minutes per simulation job
     readability_threshold = 10          # max extra yamls to accept fewer varying params
@@ -394,8 +399,8 @@ def main():
     max_jobs = int(parse_slurm_time(max_time) / time_per_job) - 1
 
     # ── Variable parameters ──────────────────────────────────────────────────
-    seeds         = [1, 2, 3]
-    scale_factors = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
+    seeds         = [1]#[1, 2, 3]
+    scale_factors = [1] #[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
 
     # f/Szz (Custom) or Hs/Tp (Bretschneider) are fetched automatically from
     # spectrums.csv based on the spectrum_type provided here.
@@ -407,7 +412,8 @@ def main():
     spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
     spectrum_ids = sorted(spectrum_ids + spec_ids_add)
     print(spectrum_ids)
-    spectrum_types = ["BretSFP"]   # 'spotter' → Custom, 'BretHFP' → Bretschneider
+    spectrum_ids = [4, 1204]
+    spectrum_types = ["BretSFP", "spotter"]   # 'spotter' → Custom, 'BretHFP' → Bretschneider
     wave_conditions = make_wave_conditions(spectrum_ids, spectrum_types)
 
     # ── Fixed parameters (add new fixed params here + in build_fixed_params) ──
