@@ -568,6 +568,8 @@ def get_color_for_spectrum_type(spectrum_type):
             color = "tab:orange"
         case "BretHFP":
             color = "tab:red"
+        case "BretSFP":
+            color = "tab:pink"
         case "spotter":
             color = "tab:blue"
         case "regular":
@@ -648,6 +650,27 @@ def remove_spectrum(spectrum_id, spectrum_type):
     
     updated_df.to_csv(spectrums_csv, index=False)
     print(f"Spectrums data written to {spectrums_csv} with {len(updated_df)} rows and {len(updated_df.columns)} columns, following dropping of spectrum ID {spectrum_id} and type {spectrum_type}.")
+def report_spectrum_types(spectrums):
+    """
+    Reports the count of spectrum IDs for each spectrum type.
+
+    Parameters:
+        spectrums (pd.DataFrame): DataFrame containing the spectrum data.
+
+    Returns:
+        pd.DataFrame: A DataFrame with spectrum types and their corresponding ID counts.
+    """
+    # Ensure the required columns exist in the DataFrame
+    if 'spectrum_type' not in spectrums.columns or 'spectrum_id' not in spectrums.columns:
+        raise ValueError("Input DataFrame must contain 'spectrum_type' and 'spectrum_id' columns.")
+
+    # Group by spectrum_type and count unique spectrum_id values
+    spectrum_summary = spectrums.groupby('spectrum_type')['spectrum_id'].nunique().reset_index()
+    
+    # Rename columns for clarity
+    spectrum_summary.columns = ['Spectrum Type', 'Number of Spectrum IDs']
+
+    return spectrum_summary
 def recreate_fully():
     """fully recreates all spectrums"""
     df = full_spectrums()
@@ -658,6 +681,10 @@ def recreate_fully():
     calculate_all('energy')
     calculate_sim_incidentspectrumtype()
 def main():
+    spectrums = read_spectrums()
+    spectrums = spectrums[spectrums['spectrum_id']==1239]
+    print(spectrums)
+    print(spectrums['spectrum_type'])
     # """
     # Main function to construct the Bretschneider spectrum for all spectrums
     # that do not already have it calculated.
@@ -703,10 +730,10 @@ def main():
     # print("Bretschneider second spectrum construction complete.")
 
 
-    calculate_all('energy')
+    # calculate_all('energy')
 
-    calculate_sim_incidentspectrumtype()
-    calculate_sim_incidentspectrumtype_backup()
+    # calculate_sim_incidentspectrumtype()
+    # calculate_sim_incidentspectrumtype_backup()
 
     #calculate_25_peak_count()
     # #calculate_all('energy')
