@@ -284,6 +284,7 @@ def check_hyak_overlaps(sub_batches_paths):
         #         print(f"    {p}")
     else:
         print("\n[overlap check] No CSV filename overlaps found.")
+    print(f"\n[overlap check] Total runs analyzed: {len(pblog_map)}")
 
 def import_hyak_batches(batch_names, base_path=r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\RcloneData\HYAK2\wec_logs\batches"):
     sub_batches_paths = get_sub_batches_paths(batch_names, base_path)
