@@ -20,6 +20,7 @@ import math
 import scipy.integrate as integrate
 import re
 from collections import defaultdict
+import warnings
 
 import mainDF_management as mDF_mgmt 
 import run_analytics
@@ -636,7 +637,17 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
                 if model_name not in models: continue
                   
                 style = models[model_name]
-                f, szz = spectrums.spectrum(i, model_name)
+
+                try:  
+                    f, szz = spectrums.spectrum(i, model_name)
+                except ValueError:
+                    warnings.warn(
+                        f"Spectrum calculation failed for index {i} with model {model_name}.",
+                        UserWarning,
+                    )
+                    continue
+                
+
                 metric_sv = spectrums.spectrum_metric_single_value(i, model_name, kwargs.get('metric_sv')) if kwargs.get('metric_sv') else None
                 x = 1/np.array(f) if period else np.array(f)
                 szz = np.array(szz)*(np.array(f)**2) if period else np.array(szz)
@@ -1772,25 +1783,26 @@ def main():
     #batch_names = ['batch_spotter_bret_SFP_30+_37450154_20260721']
     
     resolved_batches = run_analytics.resolve_hyak_batch_names(batch_names)
-    print(resolved_batches)
+    #print(resolved_batches)
     batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
     ###########TESTING WITH SMALLER SUBSET
 
-    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='avg_by_spec', **batch_kwargs)
-    print(batch_kwargs)
-    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales', **batch_kwargs)
-    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_violin', damping_ref='all_scales', **batch_kwargs)
+    #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='avg_by_spec', **batch_kwargs)
+    #print(batch_kwargs)
+    #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales', **batch_kwargs)
+    #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_violin', damping_ref='all_scales', **batch_kwargs)
 
-    # #spectrum_nums=[104, 105, 192, 271]
-    # mbari_2022 = [114, 198, 260, 384, 532, 597]
-    # mbari_2022_more = [729, 1239, 52, 363, 901, 270, 712, 803, 444]
-    # mbari_2022_moremorea = [462, 494, 1255, 38]
-    # mbari_2022_moremoreb = [62, 496]
-    # spec_ids_add = mbari_2022 + mbari_2022_more + mbari_2022_moremorea + mbari_2022_moremoreb
-    # spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
-    # spectrum_ids = sorted(spectrum_ids + spec_ids_add)
-    # spectrum_nums = spectrum_ids
-    # #plot_overlayed_spectrums((spectrum_nums), plots_per_page=8, period=False, types=['spotter', 'BretSFP', 'bretscneider'], n_cols=4, metric_sv='energy', cumsum=False)
+    #spectrum_nums=[104, 105, 192, 271]
+    mbari_2022 = [114, 198, 260, 384, 532, 597]
+    mbari_2022_more = [729, 1239, 52, 363, 901, 270, 712, 803, 444]
+    mbari_2022_moremorea = [462, 494, 1255, 38]
+    mbari_2022_moremoreb = [62, 496]
+    spec_ids_add = mbari_2022 + mbari_2022_more + mbari_2022_moremorea + mbari_2022_moremoreb
+    spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
+    spectrum_ids = sorted(spectrum_ids + spec_ids_add)
+    spectrum_nums = spectrum_ids
+    plot_overlayed_spectrums((spectrum_nums), plots_per_page=12, period=False, types=None, n_cols=4, metric_sv='energy', cumsum=False)
+    #plot_overlayed_spectrums((spectrum_nums), plots_per_page=12, period=False, types=['spotter', 'BretSFP', 'bretscneider'], n_cols=4, metric_sv='energy', cumsum=False)
     # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
     # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     # # # # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)

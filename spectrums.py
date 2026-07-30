@@ -238,6 +238,51 @@ def construct_bretschneider_min(spectrum_id, **kwargs):
     #print(f"Hs = {Hs}")
     construct_bretschneider(spectrum_id, test = False, spec_name='BretHFP', new_spectrum=True, Hs = Hs, Tp = Tp)
 
+def construct_bretschneider_most_prominent_peak(spectrum_id, **kwargs):
+    """Constructing a Bretschneider spectrum based on the most prominent peak
+    in the dataset, where prominence is calculated using scipy.signal.peak_prominences.
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    **kwargs
+        new_spectrum
+    """
+    spectrum_id = spectrum_id
+    spectrum_df = read_spectrums()
+    f, szz = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['frequency', 'varianceDensity']]
+    clean_szz = szz.strip('[]')
+    szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+
+    clean_f = f.strip('[]')
+    f_np = np.fromstring(clean_f, dtype=float, sep=',')
+
+    # 1. Find peaks (returns tuple: indices, properties)
+    peak_indices, _ = scipy.signal.find_peaks(szz_np)
+
+    # 2. Check if we found at least one peak
+    if len(peak_indices) > 0:
+        # Compute prominence for each detected peak
+        prominences, _, _ = scipy.signal.peak_prominences(szz_np, peak_indices)
+
+        # Select the peak with the highest prominence
+        peak_idx = peak_indices[np.argmax(prominences)]
+
+        # Get the actual value from the array at that index
+        peak_val = szz_np[peak_idx]
+    else:
+        peak_val = None
+        print("No peaks found.")
+
+    idx = np.where(szz_np == peak_val)
+    f_peak = f_np[idx]
+    Tp = 1/f_peak
+    Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
+
+    construct_bretschneider(spectrum_id, test=False, spec_name='BretPFP', new_spectrum=True, Hs=Hs, Tp=Tp)
+
+
 def construct_bretschneider_second_peak(spectrum_id, **kwargs):
     """Constructing 
 
@@ -284,6 +329,52 @@ def construct_bretschneider_second_peak(spectrum_id, **kwargs):
     #print(f"Tp = {Tp}")
     #print(f"Hs = {Hs}")
     construct_bretschneider(spectrum_id, test = False, spec_name='BretSFP', new_spectrum=True, Hs = Hs, Tp = Tp)
+
+def construct_bretschneider_threshold_prominent_high_freq_peak(spectrum_id, **kwargs):
+    """Constructing a Bretschneider spectrum based on the highest-frequency peak
+    whose prominence exceeds 15% of the most prominent peak's prominence.
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    **kwargs
+        new_spectrum
+    """
+    spectrum_id = spectrum_id
+    spectrum_df = read_spectrums()
+    f, szz = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['frequency', 'varianceDensity']]
+    clean_szz = szz.strip('[]')
+    szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+
+    clean_f = f.strip('[]')
+    f_np = np.fromstring(clean_f, dtype=float, sep=',')
+
+    # 1. Find peaks (returns tuple: indices, properties)
+    peak_indices, _ = scipy.signal.find_peaks(szz_np)
+
+    # 2. Check if we found at least one peak
+    if len(peak_indices) > 0:
+        # Compute prominence for each detected peak
+        prominences, _, _ = scipy.signal.peak_prominences(szz_np, peak_indices)
+
+        # 3. Filter to peaks with prominence above 15% of the highest prominence
+        prominence_threshold = 0.15 * np.max(prominences)
+        above_threshold = peak_indices[prominences >= prominence_threshold]
+
+        # 4. Take the furthest right (highest frequency) qualifying peak
+        peak_idx = above_threshold[-1]
+        peak_val = szz_np[peak_idx]
+    else:
+        peak_val = None
+        print("No peaks found.")
+
+    idx = np.where(szz_np == peak_val)
+    f_peak = f_np[idx]
+    Tp = 1/f_peak
+    Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
+
+    construct_bretschneider(spectrum_id, test=False, spec_name='BretTPFP', new_spectrum=True, Hs=Hs, Tp=Tp)
 
 def construct_regular(spectrum_id, test = False, spec_name = 'regular', **kwargs):
     """_summary_
@@ -570,6 +661,10 @@ def get_color_for_spectrum_type(spectrum_type):
             color = "tab:red"
         case "BretSFP":
             color = "tab:pink"
+        case "BretPFP":
+            color = "tab:cyan"
+        case "BretTPFP":
+            color = "tab:olive"
         case "spotter":
             color = "tab:blue"
         case "regular":
@@ -681,33 +776,29 @@ def recreate_fully():
     calculate_all('energy')
     calculate_sim_incidentspectrumtype()
 def main():
-    spectrums = read_spectrums()
-    spectrums = spectrums[spectrums['spectrum_id']==1239]
-    print(spectrums)
-    print(spectrums['spectrum_type'])
-    # """
-    # Main function to construct the Bretschneider spectrum for all spectrums
-    # that do not already have it calculated.
-    # """
-    # # Read the existing spectrums data
-    # spectrum_df = read_spectrums()
+    """
+    Main function to construct the Bretschneider spectrum for all spectrums
+    that do not already have it calculated.
+    """
+    # Read the existing spectrums data
+    spectrum_df = read_spectrums()
 
-    # # Filter for spectrums that do not have the Bretschneider spectrum
-    # spectrum_ids_without_bretschneider = spectrum_df[
-    #     ~spectrum_df['spectrum_type'].str.contains('bretschneider', case=False, na=False)
-    # ]['spectrum_id'].unique()
+    # Filter for spectrums that do not have the Bretschneider spectrum
+    spectrum_ids_without_bretschneider = spectrum_df[
+        ~spectrum_df['spectrum_type'].str.contains('BretTPFP', case=False, na=False)
+    ]['spectrum_id'].unique()
 
-    # print(f"Constructing Bretschneider spectrum for {len(spectrum_ids_without_bretschneider)} spectrums that do not already have it calculated.")
+    print(f"Constructing Brets spectrum for {len(spectrum_ids_without_bretschneider)} spectrums that do not already have it calculated.")
 
-    # # Loop through the spectrum IDs and construct the Bretschneider spectrum
-    # for spectrum_id in spectrum_ids_without_bretschneider:
-    #     try:
-    #         construct_bretschneider(spectrum_id)
-    #         #construct_bretschneider_min(spectrum_id)
-    #     except Exception as e:
-    #         print(f"Error constructing Bretschneider spectrum for spectrum ID {spectrum_id}: {e}")
+    # Loop through the spectrum IDs and construct the Bretschneider spectrum
+    for spectrum_id in spectrum_ids_without_bretschneider:
+        try:
+            construct_bretschneider_most_prominent_peak(spectrum_id)
+            construct_bretschneider_threshold_prominent_high_freq_peak(spectrum_id)
+        except Exception as e:
+            print(f"Error constructing Bretschneider spectrum for spectrum ID {spectrum_id}: {e}")
 
-    # print("Bretschneider spectrum construction complete.")
+    print("Bretschneider spectrum construction complete.")
 
     #     # Read the existing spectrums data
     # spectrum_df = read_spectrums()
