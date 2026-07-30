@@ -297,7 +297,7 @@ def import_hyak_batches(batch_names, base_path=r"C:\Users\Alex Eagan\MREL Dropbo
 ##################TESTING##################
 def main():
 #HYAK BATCHES
-    batch_names = ['batch_spotter_bret_30_37374379_20260720', 'batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722']
+    batch_names = ['batch_spot_Bret_PFP_TPFP_30+_37730593_20260726']
     import_hyak_batches(batch_names)
 #Single batch
     # batch_file_name = 'batch_results_20260518185853'

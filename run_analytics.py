@@ -447,11 +447,23 @@ def get_data(feather=True, **kwargs): #deciding how to access data - batchname a
         feather_dir = r"F:\MBARI\runFeathers"
         os.makedirs(feather_dir, exist_ok=True)
         feather_file = os.path.join(feather_dir, f"{feather_key}.feather")
+
         if feather and os.path.exists(feather_file):
-            return pd.read_feather(feather_file)
+            try:
+                return pd.read_feather(feather_file)
+            except Exception as e:
+                warnings.warn(f"Corrupt feather detected for {feather_file}, rebuilding from CSV: {e}")
+                os.remove(feather_file)
+                # Falls through to CSV read + write below
+
         run_data = pd.read_csv(rdp)
         if feather:
-            run_data.to_feather(feather_file)
+            obj_cols = run_data.select_dtypes(include='object').columns
+            run_data[obj_cols] = run_data[obj_cols].apply(pd.to_numeric, errors='coerce') #TODO: Check that this coercion is okay. 
+            try:
+                run_data.to_feather(feather_file)
+            except Exception as e:
+                warnings.warn(f"Could not write feather cache for {feather_file}: {e}")
         return run_data
     
     if 'batch_name' in kwargs and 'run_number' in kwargs:
@@ -685,7 +697,7 @@ def resolve_hyak_batch_names(hyak_batch_names):
 
 ##################TESTING##################
 def main():
-    batch_names = ['batch_spotter_bret_SFP_30+_37450154_20260721', 'batch_spotter_bret_SFP_30+_37450154_20260722']
+    batch_names = ['batch_spot_Bret_PFP_TPFP_30+_37730593_20260726']
     
     resolved_batches = resolve_hyak_batch_names(batch_names)
     batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
