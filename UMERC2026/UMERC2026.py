@@ -47,7 +47,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import re
 
-def slide1spotter(spectrum=1000):
+def slide1spotter(spectrum=1000, name ="slide1spotter.png", types = ('spotter', 'BretSFP'), fontsizetitle=24, fontsizelabel=20, width=16, heightper =9):
     """
     Plots multiple spectrums on the same axes for comparison, with presentation-ready styling.
 
@@ -68,7 +68,6 @@ def slide1spotter(spectrum=1000):
     reo_df = None
     metric_sv = None
     period = False
-    types = ('spotter', 'BretSFP')
     plots_per_page = 1
     n_cols = 1
     spectrum_nums = [spectrum]
@@ -107,7 +106,7 @@ def slide1spotter(spectrum=1000):
 
         batch = spectrum_nums[start_idx: start_idx + plots_per_page]
         n_rows = (len(batch)) // n_cols
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(10, 5 * n_rows), sharey=True)
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(width, heightper * n_rows), sharey=True)
         axes = np.atleast_1d(axes).flatten()
 
         for idx, i in enumerate(batch):
@@ -134,12 +133,12 @@ def slide1spotter(spectrum=1000):
                     ax.plot(x, szz, label=label, color=style["color"], marker=style.get("marker"), linewidth=3)
 
             # --- Styling ---
-            ax.set_title(f"Spectrum {i}", fontsize=24)
-            ax.set_xlabel(xlabel, fontsize=20)
+            ax.set_title(f"Spectrum {i}", fontsize=fontsizetitle)
+            ax.set_xlabel(xlabel, fontsize=fontsizelabel)
             if idx % 2 == 0:
-                ax.set_ylabel('Spectral Density (m^2/Hz)', fontsize=20)
+                ax.set_ylabel('Spectral Density (m^2/Hz)', fontsize=fontsizelabel)
             ax.grid(True, linestyle='--', alpha=0.5)
-            ax.legend(fontsize=20)
+            ax.legend(fontsize=fontsizelabel)
             ax.tick_params(axis='both', labelsize=16)
 
         for j in range(len(batch), len(axes)):
@@ -147,12 +146,244 @@ def slide1spotter(spectrum=1000):
 
         plt.tight_layout()
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        save_path = os.path.join(current_dir, "slide1spotter.png")
+        save_path = os.path.join(current_dir, name)
         plt.savefig(save_path, dpi=600, bbox_inches='tight', transparent=False)
         # plt.show()
 
-def slide1dampingcurve():
-    pass
+def slide1dampingcurve(
+    name="damping_avg_by_spec.png",
+    spectrum_types=('spotter',),
+    spectrum_id=None,
+    metric='avg_tot_power',
+    cols=1,
+    fontsizetitle=24,
+    fontsizelabel=20,
+    width=16,
+    heightper=9,
+    verticaltitle='Average Power (W)',
+    **kwargs
+):
+    """
+    Presentation-ready plot of average metric across damping/scale factor values,
+    grouped by root spectrum. Only spectrums matching the given spectrum_types are plotted.
+
+    Parameters
+    ----------
+    name : str
+        Output filename (saved relative to this file's directory).
+    spectrum_types : str, tuple, or list
+        Spectrum type(s) to include. Pass a single string (e.g. 'spotter'),
+        a tuple/list (e.g. ('spotter', 'BretSFP')), or 'all' / None for all types.
+    metric : str
+        The DataFrame column to plot on the y-axis.
+    cols : int
+        Number of subplot columns (default 2).
+    fontsizetitle : int
+        Font size for subplot titles.
+    fontsizelabel : int
+        Font size for axis labels and legend.
+    width : int
+        Total figure width in inches.
+    heightper : int
+        Figure height per row of subplots, in inches.
+    **kwargs
+        batch_name, batch_name2, ... : batch file name strings to filter mainDF.
+    """
+
+    # --- Resolve spectrum_types to a list (or None for all) ---
+    if spectrum_types is None or spectrum_types == 'all':
+        selected_types = None
+    elif isinstance(spectrum_types, str):
+        selected_types = [spectrum_types]
+    else:
+        selected_types = list(spectrum_types)
+
+    # --- Access and filter data ---
+    mainDF = mDF_mgmt.access_mainDF()
+
+    batch_keys = [k for k in kwargs if k.startswith('batch_name')]
+    frames_to_concat = []
+    for key in batch_keys:
+        if key in kwargs:
+            temp_df = mainDF[mainDF['batch_file_name'] == kwargs[key]].copy()
+            frames_to_concat.append(temp_df)
+
+    function_data = pd.concat(frames_to_concat, ignore_index=True)
+    function_data = function_data[function_data[' SimReturnCode'] == 0]
+
+    spectrum = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
+    full_names_spectrums_here = spectrums.read_spectrums()
+
+    # --- Build display titles and spectrum metadata ---
+    for i, spec in enumerate(spectrum):
+        spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
+
+        target_str = str(spec_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].iloc[0]).strip()
+        extracted_target = []
+        for part in target_str.split(';'):
+            if ':' not in part:
+                continue
+            tokens = part.split(':')
+            prefix = tokens[0].strip()
+            numbers = []
+            for x in tokens[1:]:
+                try:
+                    numbers.append(round(float(x), 4))
+                except ValueError:
+                    continue
+            if prefix == 'f':
+                extracted_target.extend(numbers[:1])
+            elif prefix == 'Szz':
+                non_zeros = [n for n in numbers if n != 0.0]
+                extracted_target.extend(non_zeros[:5])
+            else:
+                extracted_target.extend(numbers)
+
+        f_val1, *szz_vals1 = extracted_target
+
+        ref_parts = full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.strip().str.split(';')
+        ref_parts_backup = full_names_spectrums_here['IncWaveBackupName'].str.strip().str.split(';')
+
+        def extract_rounded(row_parts):
+            if not isinstance(row_parts, list):
+                return []
+            vals = []
+            for part in row_parts:
+                if ':' not in part:
+                    continue
+                tokens = part.split(':')
+                prefix = tokens[0].strip()
+                numbers = []
+                for x in tokens[1:]:
+                    try:
+                        numbers.append(round(float(x), 4))
+                    except ValueError:
+                        continue
+                if prefix == 'f':
+                    vals.extend(numbers[:1])
+                elif prefix == 'Szz':
+                    non_zeros = [n for n in numbers if n != 0.0]
+                    vals.extend(non_zeros[:5])
+                else:
+                    vals.extend(numbers)
+            return vals
+
+        extracted_data = ref_parts.apply(extract_rounded)
+        extracted_data_backup = ref_parts_backup.apply(extract_rounded)
+
+        matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
+        matches_backup = full_names_spectrums_here[extracted_data_backup.apply(lambda x: x == [f_val1] + szz_vals1)]
+
+        def build_display_title(row):
+            match row['spectrum_type']:
+                case "bretschneider":
+                    return f"{row['spectrum_id']}, {row['spectrum_type'][:4]}, Hs = {str(row['significantWaveHeight'])[:4]}, Tp = {str(row['peakPeriod'])[:4]}"
+                case "BretHFP":
+                    return f"{row['spectrum_id']}, {row['spectrum_type'][:7]}, Hs = {str(row['significantWaveHeight'])[:4]}, Tp = {str(row['peakPeriod'])[:4]}"
+                case "BretSFP":
+                    return f"{row['spectrum_id']}, {row['spectrum_type'][:7]}, Hs = {str(row['significantWaveHeight'])[:4]}, Tp = {str(row['peakPeriod'])[:4]}"
+                case "spotter":
+                    return f"{row['spectrum_id']}, {row['spectrum_type']}"
+                case "regular":
+                    return f"{row['spectrum_id']}, Mono, Hs = {str(row['significantWaveHeight'])[:4]}, T = {str(row['peakPeriod'])[:4]}"
+                case "regularHFP":
+                    return f"{row['spectrum_id']}, MonoHFP, Hs = {str(row['significantWaveHeight'])[:4]}, T = {str(row['peakPeriod'])[:4]}"
+                case _:
+                    return f"{row['spectrum_id']}, Wildcard Spectrum"
+
+        if not matches.empty:
+            matching_row = matches.iloc[0]
+            all_possible_types = matches['spectrum_type'].unique().tolist()
+        elif not matches_backup.empty:
+            matching_row = matches_backup.iloc[0]
+            all_possible_types = matches_backup['spectrum_type'].unique().tolist()
+        else:
+            display_title = target_str[0:12]
+            spectrum_type = "unknown"
+            function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'display_title'] = display_title
+            function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_type'] = spectrum_type
+            function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'possible_spectrum_types'] = spectrum_type
+            function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'color'] = spectrums.get_color_for_spectrum_type(spectrum_type)
+            continue
+
+        display_title = build_display_title(matching_row)
+        spectrum_type = matching_row['spectrum_type']
+
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'display_title'] = str(display_title)
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_id'] = matching_row['spectrum_id']
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_type'] = spectrum_type
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'possible_spectrum_types'] = '|'.join(str(t) for t in all_possible_types)
+        function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'color'] = spectrums.get_color_for_spectrum_type(matching_row['spectrum_type'])
+
+    # --- Filter to selected spectrum types ---
+    if selected_types is not None:
+        function_data = function_data[function_data['spectrum_type'].isin(selected_types)]
+    # --- Filter to a single spectrum ID if specified ---        
+    if spectrum_id is not None:
+        function_data = function_data[function_data['spectrum_id'] == spectrum_id]
+
+    # Re-sync spectrum list to only those still present in function_data
+    spectrum = [s for s in spectrum if s in function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].values]
+
+    # --- Sort spectrums by embedded ID in their display title ---
+    title_map = function_data.set_index(' IncWaveSpectrumType;IncWaveSpectrumParams')['display_title'].to_dict()
+
+    def sort_by_embedded_id(spectrum_key):
+        match = re.search(r'\d+', str(spectrum_key))
+        return int(match.group()) if match else 99999
+
+    spectrum = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
+    spectrum = sorted(spectrum, key=lambda x: sort_by_embedded_id(title_map.get(x, "")))
+
+    # --- Group spectrums by root ID (text before first comma in display title) ---
+    groups = defaultdict(list)
+    for spec in spectrum:
+        sample_name = str(function_data[
+            function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec
+        ]['display_title'].iloc[0])
+        group_key = sample_name.split(',', 1)[0]
+        groups[group_key].append(spec)
+
+    # --- Build subplot grid ---
+    n_groups = len(groups)
+    rows = math.ceil(n_groups / cols)
+
+    fig, axes = plt.subplots(rows, cols, figsize=(width, heightper * rows), constrained_layout=True)
+    axes_flat = np.atleast_1d(axes).flatten()
+
+    # --- Plot each group ---
+    for i, (prefix, spec_list) in enumerate(groups.items()):
+        ax = axes_flat[i]
+
+        for spec in spec_list:
+            spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
+            avg_data = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
+
+            ax.plot(
+                avg_data[' ScaleFactor'],
+                avg_data[metric],
+                label=spec_data['display_title'].iloc[0],
+                marker='o',
+                linestyle='-',
+                linewidth=3,
+                color=spec_data['color'].iloc[0]
+            )
+
+        ax.set_title(f"Spectrum: {prefix}", fontsize=fontsizetitle)
+        ax.set_xlabel('Scale Factor', fontsize=fontsizelabel)
+        ax.set_ylabel(verticaltitle, fontsize=fontsizelabel)
+        ax.legend(fontsize=fontsizelabel)
+        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.tick_params(axis='both', labelsize=16)
+
+    # --- Remove unused axes ---
+    for j in range(i + 1, len(axes_flat)):
+        fig.delaxes(axes_flat[j])
+
+    # --- Save ---
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(current_dir, name)
+    plt.savefig(save_path, dpi=600, bbox_inches='tight', transparent=False)
        
 ###############################
 def main():
@@ -160,8 +391,20 @@ def main():
     spectrum1simple = 1239
 
     # Create Graphs
+    ##Slide1
+    #slide1spotter(spectrum = spectrum1simple)
 
-    slide1spotter(spectrum = spectrum1simple)
+    additional_batches_slide1 = {
+        "batch_name": "batch_results_20260213182532",
+        "batch_name2": "batch_results_20260211181904",
+        "batch_name3": "batch_results_20260304113810",
+        "batch_name4": "batch_results_20260315141339",
+        "batch_name5": "batch_results_20260327142504",
+    }
+    slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=114, **additional_batches_slide1)
+
+    ##Slide2
+
 
 
     # ###########TESTING WITH SMALLER SUBSET

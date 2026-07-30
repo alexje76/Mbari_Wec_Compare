@@ -737,10 +737,6 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
    
     print(full_names_spectrums_here['spectrum_type'].unique())
 
-    # Place BEFORE the matching loop
-    print("\n[DIAG] Batch files loaded into function_data:")
-    print(function_data['batch_file_name'].unique().tolist())
-    input("Press Enter to continue...")
     for i, spec in enumerate(spectrum): #Adding the titles for the plots
         spec_data = function_data[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec]
 
@@ -820,58 +816,10 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     vals.extend(numbers)      # Grab everything for Hs, Tp, A, T, etc.
                         
             return vals
-        # def extract_rounded(row_parts):
-        #     # Extracts 1 'f' and 3 'Szz' values, returning a flat list
-        #     vals = [round(float(x), 4) for part in row_parts if ':' in part 
-        #            for x in part.split(':')[1:(2 if part.startswith('f') else 4)]]
-        #     return vals
-
-        #Debugging section that is now unused.
-        # # Add these prints RIGHT AFTER the extract_rounded function is defined
-        # # and BEFORE the "Apply extraction to the whole column" comment
-
-        # print(f"\n=== DEBUGGING SPECTRUM {i} ===")
-        # print(f"Target string: {target_str}")
-        # print(f"Extracted target: {[f_val1] + szz_vals1}")
-
-        # # Apply extraction to the whole column
-        # extracted_data = ref_parts.apply(extract_rounded)
-        # extracted_data_backup = ref_parts_backup.apply(extract_rounded)
-
-        # # NEW: Print all extracted reference values to compare
-        # print(f"\nAll extracted reference values (first 10):")
-        # for idx, extracted_val in enumerate(extracted_data.head(10)):
-        #     print(f"  Row {idx}: {extracted_val}")
-
-        # print(f"\nLooking for match: {[f_val1] + szz_vals1}")
-
-        # # Filter the DataFrame
-        # matches = full_names_spectrums_here[extracted_data.apply(lambda x: x == [f_val1] + szz_vals1)]
-        # matches_backup = full_names_spectrums_here[extracted_data_backup.apply(lambda x: x == [f_val1] + szz_vals1)]
-
-        # print(f"Matches found: {len(matches)}")
-        # print(f"Matches (backup) found: {len(matches_backup)}")
-
-        # # NEW: Print closest partial matches
-        # if matches.empty and matches_backup.empty:
-        #     print(f"\nNo exact matches. Checking for partial/near matches:")
-        #     for idx, extracted_val in enumerate(extracted_data):
-        #         # Check if first element (f value) matches
-        #         if extracted_val and extracted_val[0] == f_val1:
-        #             print(f"  Row {idx} has matching f value:")
-        #             print(f"    Reference: {extracted_val}")
-        #             print(f"    Target:    {[f_val1] + szz_vals1}")
-        #             print(f"    Szz match: {extracted_val[1:] == szz_vals1}")
-
-
 
         # Apply extraction to the whole column
         extracted_data = ref_parts.apply(extract_rounded)
         extracted_data_backup = ref_parts_backup.apply(extract_rounded)
-        #print(f"extracted data backup{extracted_data_backup}")
-        #print("RAW TARGET: ", target_str)
-        #print("RAW ROW 39: ", full_names_spectrums_here['IncWaveBackupName'].iloc[39])
-       # print(f"extracted data{extracted_data}")
 
         # Filter the DataFrame
         #Compare the entire extracted list to our target list [f, szz1, szz2, szz3]
@@ -882,20 +830,8 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         num_matches = matches.shape[0] #Can be used for debugging
         num_matches_backup = matches_backup.shape[0]
 
-        print(f"DEBUG: Number of matching rows in primary matches: {num_matches}")
-        print(f"DEBUG: Number of matching rows in backup matches: {num_matches_backup}")
-
-        # If there are multiple rows, group by spectrum_type and count
-        if num_matches > 1:
-            print("DEBUG: Multiple matching rows in primary matches:")
-            print(matches['spectrum_type'].value_counts())
-        if num_matches_backup > 1:
-            print("DEBUG: Multiple matching rows in backup matches:")
-            print(matches_backup['spectrum_type'].value_counts())
-
         #Safely extract the first (and presumably only) match
         if not matches.empty:
-            print('matchingrow')
             matching_row = matches.iloc[0]
 
             print(f"DEBUG: spectrum_type in matching_row: {matching_row['spectrum_type']}")
@@ -918,7 +854,6 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                     display_title = f"{matching_row['spectrum_id']}, Wildcard Spectrum"
             spectrum_type = matching_row['spectrum_type']
         else:
-            print('matchingbackup')
             # This block runs if the string search found nothing, and searches the backup
             if not matches_backup.empty:
                 matching_row = matches_backup.iloc[0]
@@ -945,12 +880,8 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 print(f"ERROR: No row found for {target_str}")
                 display_title = target_str[0:12]
                 print(f'disp tit {display_title}')
-                # Optional: print the first few reference strings to see why they don't match
-                #print("Sample References:", full_names_spectrums_here[' IncWaveSpectrumType;IncWaveSpectrumParams'].head().tolist())
 
 
-
-        #print(f"print disp title{display_title}")
         print(f'spectrum type {spectrum_type}: id: {matching_row['spectrum_id']}: disp tit {str(display_title)}')
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'display_title'] = str(display_title)
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'spectrum_id'] = matching_row['spectrum_id']
@@ -979,58 +910,10 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
         #End of the code section for adding the titles
         function_data.loc[function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'] == spec, 'color'] = spectrums.get_color_for_spectrum_type(matching_row['spectrum_type'])
 
-    # Place AFTER the matching loop
-    # Check 1: What spectrum strings were actually assigned to spectrum_id 1239?
-    print("\n[DIAG] All spectrum strings assigned to spectrum_id 1239 after matching:")
-    print(function_data[function_data['spectrum_id'] == 1239.0][
-        [' IncWaveSpectrumType;IncWaveSpectrumParams', 'spectrum_type', 'possible_spectrum_types']
-    ].drop_duplicates())
-
-    # Check 2: Where did the Custom rows in those batch files actually end up?
-    batch_names = [kwargs[k] for k in batch_keys]
-    print("\n[DIAG] Custom rows from loaded batches and their assigned spectrum_ids:")
-    print(function_data[
-        (function_data['batch_file_name'].isin(batch_names)) &
-        (function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.contains('Custom', case=False, na=False))
-    ][['spectrum_id', 'spectrum_type', 'possible_spectrum_types']].drop_duplicates())
-    input("Press Enter to continue...")
-    # Look up spectrum 1239's spotter entry directly from the CSV
-    spotter_1239 = full_names_spectrums_here[
-        (full_names_spectrums_here['spectrum_id'] == 1239) &
-        (full_names_spectrums_here['spectrum_type'].str.lower() == 'spotter') 
-    ]
-
-    if spotter_1239.empty:
-        print("\n[DIAG] Spectrum 1239 has NO spotter entry in the spectrums CSV at all.")
-        print("       This confirms it was never intended to have a spotter run.")
-    else:
-        print("\n[DIAG] Spectrum 1239 spotter entry found in CSV:")
-        print(spotter_1239[['spectrum_id', 'spectrum_type', 'significantWaveHeight', 'peakPeriod']])
-        print("\n[DIAG] Checking if its f/Szz signature matches any other spectrum in the CSV...")
-        
-        # Extract the backup string for 1239's spotter
-        backup_1239 = spotter_1239['IncWaveBackupName'].iloc[0]
-        ref_parts_backup = full_names_spectrums_here['IncWaveBackupName'].str.strip().str.split(';')
-        
-        # Reuse extract_rounded to get the signature
-        target_parts = backup_1239.strip().split(';')
-        target_extracted = extract_rounded(target_parts)
-        
-        # Find all CSV rows that match this signature
-        all_matches = full_names_spectrums_here[
-            ref_parts_backup.apply(extract_rounded).apply(lambda x: x == target_extracted)
-        ]
-        print(f"\n[DIAG] CSV rows matching 1239 spotter f/Szz signature:")
-        print(all_matches[['spectrum_id', 'spectrum_type']])
-
-    input("Press Enter to continue...")
-
-
     # Create a mapping of the unique spectrum values to their display titles
     title_map = function_data.set_index(' IncWaveSpectrumType;IncWaveSpectrumParams')['display_title'].to_dict()
     # Re-order the spectrum list based on the values in the title_map
     #spectrum = sorted(spectrum, key=lambda x: title_map[x])
-
     def sort_by_embedded_id(spectrum_key):
         """
         Extracts the first continuous block of digits from the spectrum key 
@@ -1041,29 +924,6 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
    #spectrum = sorted(spectrum, key=sort_by_embedded_id)
     spectrum = sorted(spectrum, key=lambda x: sort_by_embedded_id(title_map.get(x, "")))
 
-    debug_rows = function_data[function_data['spectrum_id'] == 1239.0]
-    print("\n[DIAG] Post-match function_data rows for spectrum_id 1239:")
-    print(debug_rows[[
-        'spectrum_type',
-        'possible_spectrum_types',
-        ' IncWaveSpectrumType;IncWaveSpectrumParams'
-    ]].drop_duplicates())
-    input("Press Enter to continue...")
-    # Find where the Custom;f:... rows for the 1239 batch actually ended up after matching
-    debug_custom = function_data[
-        function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].str.startswith('Custom', na=False)
-    ]
-    print("\n[DIAG] All Custom;f:... rows post-match (spectrum_id and type they were assigned):")
-    print(debug_custom[[
-        'spectrum_id',
-        'spectrum_type',
-        'possible_spectrum_types',
-        'display_title',
-        ' IncWaveSpectrumType;IncWaveSpectrumParams'
-    ]].drop_duplicates(subset=[
-        'spectrum_id', 'spectrum_type', 'possible_spectrum_types'
-    ]))
-    input("Press Enter to continue...")
 
     if plot_type == 'spectrumindividual':
         # Begin Subplotting
