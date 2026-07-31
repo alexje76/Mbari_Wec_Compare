@@ -1,0 +1,870 @@
+"""
+This module handles all the sectrum info
+Functions:
+- full_spectrums(): Reads JSON files for all segments and combines them into one DataFrame.
+- spectrum_list(): Simple function to gather all the custom spectrums
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import os
+import glob
+import json
+import ast
+import sys
+import scipy
+from pathlib import Path
+
+
+def full_spectrums():
+    """
+    Reads JSON files for all segments and combines them into one DataFrame.
+    """
+    spectrums = spectrum_list_year()
+    print(f"Gathering spectrums for segments: {spectrums}")
+    base_path = r"C:\Users\Alex Eagan\MREL Dropbox\Alex James Eagan\MBARI Data"
+    
+    df_list = []
+    
+    for segment_id in spectrums:
+        matches = glob.glob(os.path.join(base_path, "**", f"spotter_data_{segment_id}.json"), recursive=True)
+        if matches:
+            file_path = matches[0]  # Use the first match found
+            with open(file_path, 'r') as f:
+                try:
+                    # Option 1: Directly read if JSON is a standard table format
+                    #temp_df = pd.read_json(file_path)
+                    
+                    # Option 2: Use json_normalize if the JSON is deeply nested
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                        temp_df = pd.json_normalize(data)
+                    
+                    # Add a column to track which segment the data came from
+                    temp_df['spectrum_id'] = segment_id
+                    temp_df['spectrum_type'] = "spotter"
+                    df_list.append(temp_df)
+                    
+                except Exception as e:
+                    print(f"Skipping Spectrum {segment_id} due to error: {e}")
+            
+    # Concatenate all individual DataFrames into one
+    if not df_list:
+        raise ValueError("The list of DataFrames is empty. Process halted.")
+        
+    combined_df = pd.concat(df_list, ignore_index=True)
+    return combined_df
+
+def spectrum_list():
+    """
+    Simple function to gather all the custom spectrums
+    #TODO add in the keywords to gather a subset
+    """
+    #mbari_2022 = np.array([114, 198, 260, 384, 532, 597])
+    #mbari_2022_more = np.array([729, 1239, 52, 363, 901, 270, 712, 803, 444])
+    #mbari_2022_moremore = np.array([462, 494, 1255, 38])
+    mbari_2022_moremore = np.array([62, 496])
+    spectrum_list = mbari_2022_moremore
+    return spectrum_list
+def spectrum_list_year(year = 2022):
+    """For the given year, return a numpy array of all spotter_data IDs.
+
+    Parameters
+    ----------
+    year : int or str
+        Year of the dataset folder, e.g. 2022
+
+    Returns
+    -------
+    np.ndarray
+        Array of integers extracted from files matching
+        spotter_data_*.json
+    """
+    base_path = Path(r"C:\Users\Alex Eagan\Downloads")
+    year_folder = base_path / f"{year}_buoy_data_with_spotter"
+
+    files = year_folder.glob("spotter_data_*.json")
+    ids = sorted(int(f.stem.split("_")[-1]) for f in files)
+
+    return np.array(ids)
+
+
+
+def spectrum(spectrum_id, spectrum_type):
+    """
+    returns the f and szz for a spectrum
+
+    Parameters:
+        spectrum_id: integer ID of the spectrum to retrieve
+    Returns:
+        f: frequency array
+        szz: spectral density array
+    """
+    read_spectrums_df = read_spectrums()
+    spectrum_df = read_spectrums_df[(read_spectrums_df['spectrum_id'] == spectrum_id) & (read_spectrums_df['spectrum_type'] == spectrum_type)]
+    
+    if spectrum_df.empty:
+        raise ValueError(f"Spectrum with ID {spectrum_id} and type {spectrum_type} not found.")
+    
+    f = spectrum_df['frequency'].iloc[0]
+    szz = spectrum_df['varianceDensity'].iloc[0]
+
+    f = np.array(ast.literal_eval(f))
+    szz = np.array(ast.literal_eval(szz))
+    
+    return f, szz
+
+
+def spectrum_metric_single_value(spectrum_id, spectrum_type, metric):
+    """
+    returns the metric for a spectrum
+
+    Parameters:
+        spectrum_id: integer ID of the spectrum to retrieve
+        spectrum_type: string type of the spectrum to retrieve ('spotter', 'bret...)
+    Returns:
+        metric: the metric value requested
+    """
+    read_spectrums_df = read_spectrums()
+    spectrum_df = read_spectrums_df[(read_spectrums_df['spectrum_id'] == spectrum_id) & (read_spectrums_df['spectrum_type'] == spectrum_type)]
+    
+    if spectrum_df.empty:
+        raise ValueError(f"Spectrum with ID {spectrum_id} and type {spectrum_type} not found.")
+    
+    if metric not in spectrum_df.columns:
+        raise ValueError(f"Metric '{metric}' not found in spectrum data.")
+    else:
+        metric_value = spectrum_df[metric].iloc[0]
+        return metric_value
+
+def construct_bretschneider(spectrum_id, test = False, spec_name = 'bretschneider', **kwargs):
+    """_summary_
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    test : If you want the spectrum plotted out to compare first
+    spec_name : name you want, defaults to bretschneider
+    **kwargs
+        new_spectrum: Knows to then expect Hs and Tp as arguments
+            Hs, Tp - The given hs and Tp to use.
+        spec_name
+    """    
+    spectrum_df = read_spectrums()
+    if 'new_spectrum' in kwargs and kwargs.get('new_spectrum', True):
+        if kwargs.get('Hs') is not None and kwargs.get('Tp') is not None:
+            Hs = kwargs['Hs'].astype(float)
+            Tp = kwargs['Tp'].astype(float)
+        else:
+            raise ValueError("Must provide Hs and Tp to construct a new Bretschneider spectrum.")
+    else: #This is when I do not have a new spectrum and construct off of the 
+        Hs, Tp = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['significantWaveHeight', 'peakPeriod']]
+    print(f"Constructing Bretschneider spectrum for Hs={Hs} and Tp={Tp}")
+
+    peak_freq = 1/Tp
+    spotter_freq =np.array([0.0293, 0.03906, 0.04883, 0.05859, 0.06836, 0.07813, 0.08789, 0.09766, 0.10742, 0.11719, 0.12695, 0.13672, 0.14648, 0.15625, 0.16602, 0.17578, 0.18555, 0.19531, 0.20508, 0.21484, 0.22461, 0.23438, 0.24414, 0.25391, 0.26367, 0.27344, 0.2832, 0.29297, 0.30273, 0.3125, 0.32227, 0.33203, 0.35156, 0.38086, 0.41016, 0.43945, 0.46875, 0.49805, 0.6543])
+    #interpolate to fill out the spectrum to be twice as dense
+    x = np.arange(len(spotter_freq))
+    x_new = np.linspace(0, len(spotter_freq) - 1, len(spotter_freq) * 3 - 2) #interpolate to have 3x the number of points, so 2 points between each original point
+    spotter_freq_dense = np.interp(x_new, x, spotter_freq)
+
+    bretschneider_szz = (5/16) * (Hs**2) * ((peak_freq**4) / (spotter_freq_dense**5)) * np.exp(-1.25 * (peak_freq/spotter_freq_dense)**4)
+
+
+    temp_df = pd.DataFrame({
+    'frequency': [spotter_freq_dense.tolist()], 
+    'varianceDensity': [bretschneider_szz.tolist()], 
+    'spectrum_id': [spectrum_id], 
+    'spectrum_type': spec_name,
+    'peakPeriod': Tp,
+    'significantWaveHeight': Hs
+    })
+    print(f"test debug - print temp df {temp_df}")
+
+    if not test: 
+        write_spectrums(temp_df)
+    if test: #TODO - fix this
+        plt.plot(spotter_freq_dense, bretschneider_szz)
+        plt.show()
+        spotter_freq_dense.round(5)
+        spot = np.array2string(spotter_freq_dense,  separator=', ', suppress_small=True)
+        bretschneider_szz.round(5)
+        bret = np.array2string(bretschneider_szz,  separator=', ', suppress_small=True)
+        #print(f"-Custom:")
+        #print(f"     f: {spot}")
+        #print(f"     Szz = {bret}")
+
+def construct_bretschneider_min(spectrum_id, **kwargs):
+    """Constructing 
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    **kwargs
+        new_spectrum
+    """     #TODO - fix this
+    spectrum_id = spectrum_id
+    spectrum_df = read_spectrums()
+    f, szz = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['frequency', 'varianceDensity']]
+    clean_szz = szz.strip('[]')
+    szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+
+    clean_f = f.strip('[]')
+    f_np = np.fromstring(clean_f, dtype=float, sep=',')
+    
+    #print(szz_np)
+    # 1. Find peaks (returns tuple: indices, properties)
+    peak_indices, _ = scipy.signal.find_peaks(szz_np)
+
+    # 2. Check if we found at least one peak
+    if len(peak_indices) > 0:
+        # Find the peak index that corresponds to the highest value in szz_np
+        peak_idx = peak_indices[np.argmax(szz_np[peak_indices])]
+        
+        # Get the actual value from the array at that index
+        peak_val = szz_np[peak_idx]
+    else:
+        peak_val = None
+        print("No peaks found.")
+    #print(peak_val)
+
+    idx = np.where(szz_np == peak_val)
+    f_peak = f_np[idx]
+    Tp = 1/f_peak
+    Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
+    #print(f"Tp = {Tp}")
+    #print(f"Hs = {Hs}")
+    construct_bretschneider(spectrum_id, test = False, spec_name='BretHFP', new_spectrum=True, Hs = Hs, Tp = Tp)
+
+def construct_bretschneider_most_prominent_peak(spectrum_id, **kwargs):
+    """Constructing a Bretschneider spectrum based on the most prominent peak
+    in the dataset, where prominence is calculated using scipy.signal.peak_prominences.
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    **kwargs
+        new_spectrum
+    """
+    spectrum_id = spectrum_id
+    spectrum_df = read_spectrums()
+    f, szz = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['frequency', 'varianceDensity']]
+    clean_szz = szz.strip('[]')
+    szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+
+    clean_f = f.strip('[]')
+    f_np = np.fromstring(clean_f, dtype=float, sep=',')
+
+    # 1. Find peaks (returns tuple: indices, properties)
+    peak_indices, _ = scipy.signal.find_peaks(szz_np)
+
+    # 2. Check if we found at least one peak
+    if len(peak_indices) > 0:
+        # Compute prominence for each detected peak
+        prominences, _, _ = scipy.signal.peak_prominences(szz_np, peak_indices)
+
+        # Select the peak with the highest prominence
+        peak_idx = peak_indices[np.argmax(prominences)]
+
+        # Get the actual value from the array at that index
+        peak_val = szz_np[peak_idx]
+    else:
+        peak_val = None
+        print("No peaks found.")
+
+    idx = np.where(szz_np == peak_val)
+    f_peak = f_np[idx]
+    Tp = 1/f_peak
+    Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
+
+    construct_bretschneider(spectrum_id, test=False, spec_name='BretPFP', new_spectrum=True, Hs=Hs, Tp=Tp)
+
+
+def construct_bretschneider_second_peak(spectrum_id, **kwargs):
+    """Constructing 
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    **kwargs
+        new_spectrum
+    """     #TODO - fix this
+    spectrum_id = spectrum_id
+    spectrum_df = read_spectrums()
+    f, szz = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['frequency', 'varianceDensity']]
+    clean_szz = szz.strip('[]')
+    szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+
+    clean_f = f.strip('[]')
+    f_np = np.fromstring(clean_f, dtype=float, sep=',')
+    
+    #print(szz_np)
+    # 1. Find peaks (returns tuple: indices, properties)
+    peak_indices, _ = scipy.signal.find_peaks(szz_np)
+
+    # 2. Check if we found at least one peak
+    if len(peak_indices) > 0: 
+        # If there are 2 or more peaks, take the second one [1] 
+        # Otherwise, take the first one [0] 
+        if len(peak_indices) >= 2: 
+            peak_idx = peak_indices[1] 
+        else: 
+            peak_idx = peak_indices[0]
+        
+        # Get the actual value from the array at that index
+        peak_val = szz_np[peak_idx]
+    else:
+        peak_val = None
+        print("No peaks found.")
+    #print(peak_val)
+
+    idx = np.where(szz_np == peak_val)
+    f_peak = f_np[idx]
+    Tp = 1/f_peak
+    Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
+    #print(f"Tp = {Tp}")
+    #print(f"Hs = {Hs}")
+    construct_bretschneider(spectrum_id, test = False, spec_name='BretSFP', new_spectrum=True, Hs = Hs, Tp = Tp)
+
+def construct_bretschneider_threshold_prominent_high_freq_peak(spectrum_id, **kwargs):
+    """Constructing a Bretschneider spectrum based on the highest-frequency peak
+    whose prominence exceeds 15% of the most prominent peak's prominence.
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    **kwargs
+        new_spectrum
+    """
+    spectrum_id = spectrum_id
+    spectrum_df = read_spectrums()
+    f, szz = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['frequency', 'varianceDensity']]
+    clean_szz = szz.strip('[]')
+    szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+
+    clean_f = f.strip('[]')
+    f_np = np.fromstring(clean_f, dtype=float, sep=',')
+
+    # 1. Find peaks (returns tuple: indices, properties)
+    peak_indices, _ = scipy.signal.find_peaks(szz_np)
+
+    # 2. Check if we found at least one peak
+    if len(peak_indices) > 0:
+        # Compute prominence for each detected peak
+        prominences, _, _ = scipy.signal.peak_prominences(szz_np, peak_indices)
+
+        # 3. Filter to peaks with prominence above 15% of the highest prominence
+        prominence_threshold = 0.15 * np.max(prominences)
+        above_threshold = peak_indices[prominences >= prominence_threshold]
+
+        # 4. Take the furthest right (highest frequency) qualifying peak
+        peak_idx = above_threshold[-1]
+        peak_val = szz_np[peak_idx]
+    else:
+        peak_val = None
+        print("No peaks found.")
+
+    idx = np.where(szz_np == peak_val)
+    f_peak = f_np[idx]
+    Tp = 1/f_peak
+    Hs = np.sqrt((16*peak_val*f_peak)/(5*np.exp(-1.25)))
+
+    construct_bretschneider(spectrum_id, test=False, spec_name='BretTPFP', new_spectrum=True, Hs=Hs, Tp=Tp)
+
+def construct_regular(spectrum_id, test = False, spec_name = 'regular', **kwargs):
+    """_summary_
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the Bretschneider spectrum for.
+    test : If you want the spectrum plotted out to compare first
+    spec_name : name you want, defaults to bretschneider
+    **kwargs
+        new_spectrum: Knows to then expect Hs and Tp as arguments
+            Hs, Tp - The given hs and Tp to use.
+    """
+    spectrum_df = read_spectrums()
+    print(f"new spec? : {kwargs.get('new_spectrum')}")
+    if 'new_spectrum' in kwargs and kwargs.get('new_spectrum', True):
+        if kwargs.get('Hs') is not None and kwargs.get('Tp') is not None:
+            Hs = pd.to_numeric(kwargs['Hs'])
+            Tp = pd.to_numeric(kwargs['Tp'])
+            print(f"using given hs and tp") #debugging
+        else:
+            raise ValueError("Must provide Hs and Tp to construct a new Regular spectrum.")
+    else: #This is when I do not have a new spectrum and construct off of the 
+        Hs, Tp = spectrum_df[(spectrum_df['spectrum_id']==spectrum_id) & (spectrum_df['spectrum_type']=='spotter')].iloc[0][['significantWaveHeight', 'peakPeriod']]
+    print(f"Constructing Regular spectrum for Hs={Hs} and Tp={Tp}")
+
+    peak_freq = np.array([1/Tp])
+    szz = np.array([(Hs/2)**2/2]) #this should not be used, but is "correct"
+
+    temp_df = pd.DataFrame({
+    'frequency': [peak_freq.tolist()], 
+    'varianceDensity': [szz.tolist()], 
+    'spectrum_id': [spectrum_id], 
+    'spectrum_type': spec_name,
+    'peakPeriod': Tp,
+    'significantWaveHeight': Hs
+    })
+    print(f"test debug - print temp df {temp_df}")
+
+    if not test: 
+        write_spectrums(temp_df)
+    if test: #TODO - fix this
+        print(f"This was a test for regular spectrum: Hs = {Hs}, Tp = {Tp}")
+
+def construct_reg_HFP(spectrum_id, **kwargs):
+    """Constructing a regular spectrum with the same Hs and Tp as the given spectrum ID from the BretHFP
+
+    Parameters
+    ----------
+    spectrum_id : string or int
+        The ID of the spectrum to construct the regular spectrum for.
+    **kwargs
+        new_spectrum
+    """    
+    df = read_spectrums()
+    exists = False
+    print(f"\n \n Starting construct regular with spectrum id {spectrum_id} and looking for matching BretHFP spectrum to get Hs and Tp ")
+    for i, row in df.iterrows():
+        if row['spectrum_id'] == spectrum_id and row['spectrum_type'] == 'BretHFP':
+            Hs = row['significantWaveHeight']
+            Tp = row['peakPeriod']
+            exists = True
+            print(f"Found matching BretHFP spectrum for ID {spectrum_id} with Hs={Hs} and Tp={Tp}. Constructing regular spectrum.")
+            construct_regular(spectrum_id, test = False, spec_name = 'regularHFP', new_spectrum=True, Hs = Hs, Tp = Tp)
+    if not exists:
+        raise ValueError("Spectrum not found of type 'BretHFP'")
+
+
+
+def calculate_energy(spectrum_id, spectrum_type):
+    """
+    Calculates the energy of a spectrum by integrating the spectral density over frequency.
+    
+    Parameters:
+        spectrum_id: The ID of the spectrum to calculate energy for
+        spectrum_type: The type of the spectrum (e.g., 'spotter', 'bretschneider')
+    Returns:
+        energy: The calculated energy of the spectrum
+    """
+    if spectrum_type not in['regular', 'regularHFP']:
+        f, szz = spectrum(spectrum_id, spectrum_type)
+        energy = np.trapezoid(szz, f)
+    else:
+        energy = np.nan
+    return energy
+
+def calculate_all(metric, spectrum_type=None):
+    """
+    Calculates a specified metric for all spectrums of a given type.
+    
+    Parameters:
+        metric: The metric to calculate (e.g., 'energy')
+        spectrum_type: The type of spectrums to calculate the metric for (e.g., 'spotter', 'bretschneider')
+    """
+    df = read_spectrums()
+    if spectrum_type is not None:
+        df = df[df['spectrum_type'] == spectrum_type]
+    for _, row in df.iterrows():
+        print(f"ID: {row['spectrum_id']}, Type: {row['spectrum_type']}")
+        df.loc[(df['spectrum_id'] == row['spectrum_id']) & (df['spectrum_type'] == row['spectrum_type']), metric] = globals()[f'calculate_{metric}'](row['spectrum_id'], row['spectrum_type'])
+    overwrite_spectrums(df)
+
+def calculate_sim_incidentspectrumtype(spectrum_type = None):
+    """Generates the Incidentwave height to have easier plotting names elsewhere
+
+    Parameters
+    ----------
+    spectrum_type : _type_, optional
+        If you only want to calculate one s, by default None
+    """    
+    df = read_spectrums()
+    if spectrum_type is not None:
+        usr_input = input("Type; 'Y or y' to continue, will wipe all other spectrum types from csv ")
+        if usr_input.lower() == 'y':
+            df = df[df['spectrum_type'] == spectrum_type]
+        else:
+            print('Discarding adding Incident Strings')
+        return
+        
+    print(df[['spectrum_id', 'spectrum_type', 'significantWaveHeight', 'peakPeriod']])
+    for i, row in df.iterrows():
+        if row['spectrum_type'] == 'spotter':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'bretschneider':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'BretHFP':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'BretSFP':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'BretPFP':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'BretTPFP':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'regular':
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"MonoChromatic;A:{df.at[i, 'significantWaveHeight']/2};T:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'regularHFP':
+            A = round(df.at[i, 'significantWaveHeight'],8)/2
+            T = round(df.at[i, 'peakPeriod'],8)
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"MonoChromatic;A:{A};T:{T}"
+        else:
+            print(f"Unknown spectrum type {row['spectrum_type']} for spectrum ID {row['spectrum_id']}. Skipping incident spectrum type calculation.")
+
+    print (df[['spectrum_id', 'spectrum_type', ' IncWaveSpectrumType;IncWaveSpectrumParams']])
+    overwrite_spectrums(df)
+def calculate_sim_incidentspectrumtype_backup(spectrum_type = None):
+    """
+    Creates the incident spectrum string to compare with later, used only for the backup if a custom spectrum was specified to the simulator instead of a simulator generated one such as Bretschneider.
+    """    
+    df = read_spectrums()
+
+    if 'IncWaveBackup' not in df.columns: #create the backup column if it doesnt exist yet
+        df['IncWaveBackup'] = None
+
+    if spectrum_type is not None:
+        usr_input = input("Type; 'Y or y' to continue, will wipe all other spectrum types from csv ")
+        if usr_input.lower() == 'y':
+            df = df[df['spectrum_type'] == spectrum_type]
+        else:
+            print('Discarding adding Incident Strings')
+        return
+        
+    print(df[['spectrum_id', 'spectrum_type', 'significantWaveHeight', 'peakPeriod']])
+    for i, row in df.iterrows():
+        if row['spectrum_type'] == 'spotter':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'bretschneider':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'BretHFP':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'BretSFP':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'BretPFP':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'BretTPFP':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'regular':
+            df.at[i, 'IncWaveBackupName'] = f"MonoChromatic;A:{df.at[i, 'significantWaveHeight']/2};T:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'regularHFP':
+            A = round(df.at[i, 'significantWaveHeight'],8)/2
+            T = round(df.at[i, 'peakPeriod'],8)
+            df.at[i, 'IncWaveBackupName'] = f"MonoChromatic;A:{A};T:{T}"
+        else:
+            print(f"Unknown spectrum type {row['spectrum_type']} for spectrum ID {row['spectrum_id']}. Skipping incident spectrum type calculation.")
+
+    print (df[['spectrum_id', 'spectrum_type', 'IncWaveBackupName']])
+    overwrite_spectrums(df)
+
+def calculate_peak_count():
+    """
+    Adds a flag to the spectrums CSV for the number of peaks in each spectrum labeled as 'spotter'.
+    """
+    spectrum_df = read_spectrums()
+    
+    # Check for 'spotter' spectrum types
+    spotter_df = spectrum_df[spectrum_df['spectrum_type'] == 'spotter']
+    
+    # Initialize a list to store peak counts
+    peak_counts = []
+    
+    for i, row in spotter_df.iterrows():
+        # Parse frequency and variance density arrays
+        clean_szz = row['varianceDensity'].strip('[]')
+        szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+        
+        # Find peaks
+        peak_indices, _ = scipy.signal.find_peaks(szz_np)
+        peak_count = len(peak_indices)
+        
+        # Append peak count
+        peak_counts.append(peak_count)
+    
+    # Add peak counts as a new column to the original DataFrame
+    spectrum_df.loc[spectrum_df['spectrum_type'] == 'spotter', 'peak_count'] = peak_counts
+    
+    # Write the updated DataFrame back to the CSV
+    overwrite_spectrums(spectrum_df)
+    print("Peak counts added to the spectrums CSV.")
+
+def calculate_25_peak_count():
+    """
+    Adds a flag to the spectrums CSV for the number of significant peaks in each spectrum labeled as 'spotter'.
+    A significant peak is one where its value is at least 25% of the largest peak in the spectrum.
+    """
+    spectrum_df = read_spectrums()
+    
+    # Check for 'spotter' spectrum types
+    spotter_df = spectrum_df[spectrum_df['spectrum_type'] == 'spotter']
+    
+    # Initialize a list to store filtered peak counts
+    filtered_peak_counts = []
+    
+    for i, row in spotter_df.iterrows():
+        # Parse variance density array
+        clean_szz = row['varianceDensity'].strip('[]')
+        szz_np = np.fromstring(clean_szz, dtype=float, sep=',')
+        
+        # Find all peaks
+        peak_indices, _ = scipy.signal.find_peaks(szz_np)
+        
+        if len(peak_indices) > 0:
+            # Get the values of the peaks
+            peak_values = szz_np[peak_indices]
+            
+            # Find the largest peak value
+            max_peak_value = np.max(peak_values)
+            
+            # Filter peaks that are at least 25% of the largest peak value
+            significant_peaks = [p for p in peak_values if p >= 0.25 * max_peak_value]
+            
+            # Count the number of significant peaks
+            filtered_peak_count = len(significant_peaks)
+        else:
+            filtered_peak_count = 0  # No peaks found
+        
+        # Append the filtered peak count
+        filtered_peak_counts.append(filtered_peak_count)
+    
+    # Add the filtered peak counts as a new column to the original DataFrame
+    spectrum_df.loc[spectrum_df['spectrum_type'] == 'spotter', 'filtered_peak_count'] = filtered_peak_counts
+    
+    # Write the updated DataFrame back to the CSV
+    overwrite_spectrums(spectrum_df)
+    print("Filtered peak counts added to the spectrums CSV.")
+
+def get_color_for_spectrum_type(spectrum_type):
+    """
+    Returns a color based on the spectrum type for consistent plotting.
+    
+    Parameters:
+        spectrum_type: The type of the spectrum (e.g., 'spotter', 'bretschneider')
+    Returns:
+        color: A string representing the color to use for plotting
+    """
+    match spectrum_type:
+        case "bretschneider":
+            color = "tab:orange"
+        case "BretHFP":
+            color = "tab:red"
+        case "BretSFP":
+            color = "tab:pink"
+        case "BretPFP":
+            color = "tab:cyan"
+        case "BretTPFP":
+            color = "tab:olive"
+        case "spotter":
+            color = "tab:blue"
+        case "regular":
+            color = "tab:green"
+        case "regularHFP":
+            color = "tab:purple"
+        case _:
+            color = "tab:gray"
+    return color
+
+def read_spectrums():
+    """
+    Reads the spectrums csv file 
+        ----------
+        Parameters:
+            None
+        ----------
+        Returns:
+            spectrums_df: DataFrame containing the spectrums data
+    """
+    spectrums_csv = r'C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+    if os.path.exists(spectrums_csv):
+        spectrums_df = pd.read_csv(spectrums_csv)
+        #print(f"Spectrums data loaded with {len(spectrums_df)} rows and {len(spectrums_df.columns)} columns.")
+    else:
+        raise FileNotFoundError(f"{spectrums_csv} not found. Please ensure the file exists in the correct location.")
+    
+    return spectrums_df
+def write_spectrums(df):
+    """
+    Writes the spectrums DataFrame to a CSV file
+    
+        Parameters
+        ----------
+        df: DataFrame containing the spectrums data to write
+        Returns
+        None
+    """
+    spectrums_df = read_spectrums()
+    combined_df = pd.concat([spectrums_df, df], ignore_index=True).drop_duplicates(subset=['spectrum_id', 'spectrum_type']).reset_index(drop=True)
+
+    spectrums_csv = r'C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+    combined_df.to_csv(spectrums_csv, index=False)
+    print(f"Spectrums data written to {spectrums_csv} with {len(combined_df)} rows and {len(combined_df.columns)} columns.")
+def overwrite_spectrums(df):
+    """
+    Writes the spectrums DataFrame to a CSV file
+    
+        Parameters
+        ----------
+        df: DataFrame containing the spectrums data to write
+        Returns
+        None
+    """
+    old_specs_df = read_spectrums()
+    usr_input = input("Type; 'Y' to overwrite old spectrums, if no entry defaults to keep original spectrums entries : ")
+    if usr_input.lower() == 'y':
+        spectrums_csv = r'C:\Users\Alex Eagan\OneDrive - UW\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+        df.to_csv(spectrums_csv, index=False)
+        print(f"Spectrums data overwritten to {spectrums_csv} with {len(df)} rows and {len(df.columns)} columns - old spectrums was {len(old_specs_df)} rows and {len(old_specs_df.columns)} columns.")
+    else:
+        print('Discarding new spectrums data, keeping original spectrums entries.')
+        return
+def remove_spectrum(spectrum_id, spectrum_type):
+    """
+    Removes a spectrum from the spectrums CSV file based on its ID and type
+    
+        Parameters
+        ----------
+        spectrum_id: The ID of the spectrum to remove
+        spectrum_type: The type of the spectrum to remove (e.g., 'spotter', 'bretschneider')
+        Returns
+        None
+    """
+    spectrums_df = read_spectrums()
+    updated_df = spectrums_df.drop(spectrums_df[(spectrums_df['spectrum_id'] == spectrum_id) & (spectrums_df['spectrum_type'] == spectrum_type)].index)
+    spectrums_csv = r'C:\Users\Alex Eagan\Documents\GitHub\Mbari_Wec_Compare\spectrums.csv'  # Path to your spectrums CSV file
+    
+    updated_df.to_csv(spectrums_csv, index=False)
+    print(f"Spectrums data written to {spectrums_csv} with {len(updated_df)} rows and {len(updated_df.columns)} columns, following dropping of spectrum ID {spectrum_id} and type {spectrum_type}.")
+def report_spectrum_types(spectrums):
+    """
+    Reports the count of spectrum IDs for each spectrum type.
+
+    Parameters:
+        spectrums (pd.DataFrame): DataFrame containing the spectrum data.
+
+    Returns:
+        pd.DataFrame: A DataFrame with spectrum types and their corresponding ID counts.
+    """
+    # Ensure the required columns exist in the DataFrame
+    if 'spectrum_type' not in spectrums.columns or 'spectrum_id' not in spectrums.columns:
+        raise ValueError("Input DataFrame must contain 'spectrum_type' and 'spectrum_id' columns.")
+
+    # Group by spectrum_type and count unique spectrum_id values
+    spectrum_summary = spectrums.groupby('spectrum_type')['spectrum_id'].nunique().reset_index()
+    
+    # Rename columns for clarity
+    spectrum_summary.columns = ['Spectrum Type', 'Number of Spectrum IDs']
+
+    return spectrum_summary
+def recreate_fully():
+    """fully recreates all spectrums"""
+    df = full_spectrums()
+    write_spectrums(df)
+    list = spectrum_list()
+    for i, spectrum_id in enumerate(list):
+        construct_bretschneider(spectrum_id)
+    calculate_all('energy')
+    calculate_sim_incidentspectrumtype()
+def main():
+    # """
+    # Main function to construct the Bretschneider spectrum for all spectrums
+    # that do not already have it calculated.
+    # """
+    # # Read the existing spectrums data
+    # spectrum_df = read_spectrums()
+
+    # # Filter for spectrums that do not have the Bretschneider spectrum
+    # spectrum_ids_without_bretschneider = spectrum_df[
+    #     ~spectrum_df['spectrum_type'].str.contains('BretTPFP', case=False, na=False)
+    # ]['spectrum_id'].unique()
+
+    # print(f"Constructing Brets spectrum for {len(spectrum_ids_without_bretschneider)} spectrums that do not already have it calculated.")
+
+    # # Loop through the spectrum IDs and construct the Bretschneider spectrum
+    # for spectrum_id in spectrum_ids_without_bretschneider:
+    #     try:
+    #         construct_bretschneider_most_prominent_peak(spectrum_id)
+    #         construct_bretschneider_threshold_prominent_high_freq_peak(spectrum_id)
+    #     except Exception as e:
+    #         print(f"Error constructing Bretschneider spectrum for spectrum ID {spectrum_id}: {e}")
+
+    # print("Bretschneider spectrum construction complete.")
+
+    #     # Read the existing spectrums data
+    # spectrum_df = read_spectrums()
+
+    # # Filter for spectrums that do not have the Bretschneider spectrum
+    # spectrum_ids_without_bretschneider = spectrum_df[
+    #     ~spectrum_df['spectrum_type'].str.contains('BretSFP', case=False, na=False)
+    # ]['spectrum_id'].unique()
+
+    # print(f"Constructing Bretschneider spectrum for {len(spectrum_ids_without_bretschneider)} spectrums that do not already have it calculated.")
+
+    # # Loop through the spectrum IDs and construct the Bretschneider spectrum
+    # for spectrum_id in spectrum_ids_without_bretschneider:
+    #     try:
+    #         #construct_bretschneider(spectrum_id)
+    #         construct_bretschneider_second_peak(spectrum_id)
+    #     except Exception as e:
+    #         print(f"Error constructing Bretschneider spectrum for spectrum ID {spectrum_id}: {e}")
+
+    # print("Bretschneider second spectrum construction complete.")
+
+
+    calculate_all('energy')
+
+    calculate_sim_incidentspectrumtype()
+    calculate_sim_incidentspectrumtype_backup()
+
+    #calculate_25_peak_count()
+    # #calculate_all('energy')
+    # #calculate_sim_incidentspectrumtype()
+    # # spec_list = spectrum_list()
+    # # for spec in spec_list:
+    # #     construct_bretschneider_min(spec)
+    # # #print('It appears you are running spectrums.py directly. This module is intended to be imported and used by other scripts.')
+    # #calculate_sim_incidentspectrumtype()
+
+    # # spec_list = spectrum_list()
+    # # for spec in spec_list:
+    # #     construct_reg_HFP(spec)
+    # #calculate_sim_incidentspectrumtype_backup()
+    # #calculate_all('energy')
+
+    # df = full_spectrums()
+    # write_spectrums(df)
+    # list = spectrum_list()
+    # for i, spectrum_id in enumerate(list):
+    #     construct_bretschneider(spectrum_id)
+    #     construct_bretschneider_min(spectrum_id)
+
+    # #Adding MBARI 2022 data all. 
+    # # df = full_spectrums()
+    # # write_spectrums(df)
+
+if __name__ == '__main__':
+    main()
