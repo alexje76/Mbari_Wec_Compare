@@ -1,0 +1,37 @@
+duration: 2360
+physics_rtf: 10
+enable_gui: false
+physics_step: 0.01
+door_state: [closed]
+battery_soc: 0.5
+seed: [1]
+scale_factor: [1.0]
+IncidentWaveSpectrumType:
+- '# Spectrum ID 901 of type bretschneider': null
+  Bretschneider:
+    Hs: [0.528]
+    Tp: [12.799]
+- '# Spectrum ID 1031 of type bretschneider': null
+  Bretschneider:
+    Hs: [0.539]
+    Tp: [7.877]
+- '# Spectrum ID 1045 of type bretschneider': null
+  Bretschneider:
+    Hs: [0.77]
+    Tp: [5.389]
+- '# Spectrum ID 1115 of type bretschneider': null
+  Bretschneider:
+    Hs: [1.033]
+    Tp: [9.309]
+- '# Spectrum ID 1143 of type bretschneider': null
+  Bretschneider:
+    Hs: [1.143]
+    Tp: [9.309]
+- '# Spectrum ID 1174 of type bretschneider': null
+  Bretschneider:
+    Hs: [1.258]
+    Tp: [7.877]
+- '# Spectrum ID 1181 of type bretschneider': null
+  Bretschneider:
+    Hs: [1.664]
+    Tp: [6.4]

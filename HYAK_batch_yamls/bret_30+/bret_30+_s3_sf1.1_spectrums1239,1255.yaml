@@ -1,0 +1,17 @@
+duration: 2360
+physics_rtf: 10
+enable_gui: false
+physics_step: 0.01
+door_state: [closed]
+battery_soc: 0.5
+seed: [3]
+scale_factor: [1.1]
+IncidentWaveSpectrumType:
+- '# Spectrum ID 1239 of type bretschneider': null
+  Bretschneider:
+    Hs: [1.476]
+    Tp: [9.309]
+- '# Spectrum ID 1255 of type bretschneider': null
+  Bretschneider:
+    Hs: [1.282]
+    Tp: [20.479]

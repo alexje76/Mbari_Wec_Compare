@@ -510,6 +510,12 @@ def calculate_sim_incidentspectrumtype(spectrum_type = None):
         elif row['spectrum_type'] == 'BretSFP':
             print(df.at[i, 'significantWaveHeight'])
             df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'BretPFP':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
+        elif row['spectrum_type'] == 'BretTPFP':
+            print(df.at[i, 'significantWaveHeight'])
+            df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"Bretschneider;Hs:{df.at[i, 'significantWaveHeight']};Tp:{df.at[i, 'peakPeriod']}"
         elif row['spectrum_type'] == 'regular':
             df.at[i, ' IncWaveSpectrumType;IncWaveSpectrumParams'] = f"MonoChromatic;A:{df.at[i, 'significantWaveHeight']/2};T:{df.at[i, 'peakPeriod']}"
         elif row['spectrum_type'] == 'regularHFP':
@@ -553,6 +559,14 @@ def calculate_sim_incidentspectrumtype_backup(spectrum_type = None):
             szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
             df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
         elif row['spectrum_type'] == 'BretSFP':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'BretPFP':
+            f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
+            szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
+            df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
+        elif row['spectrum_type'] == 'BretTPFP':
             f_arr = np.fromstring(df.at[i, 'frequency'].strip('[]'), sep=',')
             szz_arr = np.fromstring(df.at[i, 'varianceDensity'].strip('[]'), sep=',')
             df.at[i, 'IncWaveBackupName'] = f"Custom;f:{':'.join(map('{:g}'.format, f_arr))};Szz:{':'.join(map('{:g}'.format, szz_arr.astype(float)))}"
@@ -660,9 +674,9 @@ def get_color_for_spectrum_type(spectrum_type):
         case "BretHFP":
             color = "tab:red"
         case "BretSFP":
-            color = "tab:pink"
-        case "BretPFP":
             color = "tab:cyan"
+        case "BretPFP":
+            color = "tab:pink"
         case "BretTPFP":
             color = "tab:olive"
         case "spotter":
@@ -776,29 +790,29 @@ def recreate_fully():
     calculate_all('energy')
     calculate_sim_incidentspectrumtype()
 def main():
-    """
-    Main function to construct the Bretschneider spectrum for all spectrums
-    that do not already have it calculated.
-    """
-    # Read the existing spectrums data
-    spectrum_df = read_spectrums()
+    # """
+    # Main function to construct the Bretschneider spectrum for all spectrums
+    # that do not already have it calculated.
+    # """
+    # # Read the existing spectrums data
+    # spectrum_df = read_spectrums()
 
-    # Filter for spectrums that do not have the Bretschneider spectrum
-    spectrum_ids_without_bretschneider = spectrum_df[
-        ~spectrum_df['spectrum_type'].str.contains('BretTPFP', case=False, na=False)
-    ]['spectrum_id'].unique()
+    # # Filter for spectrums that do not have the Bretschneider spectrum
+    # spectrum_ids_without_bretschneider = spectrum_df[
+    #     ~spectrum_df['spectrum_type'].str.contains('BretTPFP', case=False, na=False)
+    # ]['spectrum_id'].unique()
 
-    print(f"Constructing Brets spectrum for {len(spectrum_ids_without_bretschneider)} spectrums that do not already have it calculated.")
+    # print(f"Constructing Brets spectrum for {len(spectrum_ids_without_bretschneider)} spectrums that do not already have it calculated.")
 
-    # Loop through the spectrum IDs and construct the Bretschneider spectrum
-    for spectrum_id in spectrum_ids_without_bretschneider:
-        try:
-            construct_bretschneider_most_prominent_peak(spectrum_id)
-            construct_bretschneider_threshold_prominent_high_freq_peak(spectrum_id)
-        except Exception as e:
-            print(f"Error constructing Bretschneider spectrum for spectrum ID {spectrum_id}: {e}")
+    # # Loop through the spectrum IDs and construct the Bretschneider spectrum
+    # for spectrum_id in spectrum_ids_without_bretschneider:
+    #     try:
+    #         construct_bretschneider_most_prominent_peak(spectrum_id)
+    #         construct_bretschneider_threshold_prominent_high_freq_peak(spectrum_id)
+    #     except Exception as e:
+    #         print(f"Error constructing Bretschneider spectrum for spectrum ID {spectrum_id}: {e}")
 
-    print("Bretschneider spectrum construction complete.")
+    # print("Bretschneider spectrum construction complete.")
 
     #     # Read the existing spectrums data
     # spectrum_df = read_spectrums()
@@ -821,10 +835,10 @@ def main():
     # print("Bretschneider second spectrum construction complete.")
 
 
-    # calculate_all('energy')
+    calculate_all('energy')
 
-    # calculate_sim_incidentspectrumtype()
-    # calculate_sim_incidentspectrumtype_backup()
+    calculate_sim_incidentspectrumtype()
+    calculate_sim_incidentspectrumtype_backup()
 
     #calculate_25_peak_count()
     # #calculate_all('energy')

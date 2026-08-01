@@ -592,6 +592,8 @@ def plot_overlayed_spectrums(spectrum_nums, plots_per_page=6, types=None, n_cols
         "bretschneider": {"label": "Bretschneider", "color": spectrums.get_color_for_spectrum_type("bretschneider"), "fmt": "plot"},
         "BretHFP": {"label": "BretHFP", "color": spectrums.get_color_for_spectrum_type("BretHFP"), "fmt": "plot"},
         "BretSFP": {"label": "BretSFP", "color": spectrums.get_color_for_spectrum_type("BretSFP"), "fmt": "plot"},
+        "BretTPFP": {"label": "BretTPFP", "color": spectrums.get_color_for_spectrum_type("BretTPFP"), "fmt": "plot"},
+        "BretPFP": {"label": "BretPFP", "color": spectrums.get_color_for_spectrum_type("BretPFP"), "fmt": "plot"},
         "jonswap": {"label": "Jonswap", "color": spectrums.get_color_for_spectrum_type("jonswap"), "fmt": "plot", "marker": "x"},
         "regular": {"label": "Regular", "color": spectrums.get_color_for_spectrum_type("regular"), "fmt": "vline", "alpha": 0.65},
         "regularHFP": {"label": "RegularHFP", "color": spectrums.get_color_for_spectrum_type("regularHFP"), "fmt": "vline", "alpha": 0.65}
@@ -855,6 +857,12 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                 case "BretSFP":
                     print('BretSFP')
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                case "BretTPFP":
+                    print('BretTPFP')
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                case "BretPFP":
+                    print('BretPFP')
+                    display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                 case "spotter":
                     display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
                 case "regular":
@@ -876,6 +884,12 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                     case "BretSFP":
                         print('BretSFP')
+                        display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                    case "BretTPFP":
+                        print('BretTPFP')
+                        display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
+                    case "BretPFP":
+                        print('BretPFP')
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type'][:7]}, Hs = {matching_row['significantWaveHeight'].astype(str)[:4]}, Tp = {matching_row['peakPeriod'].astype(str)[:4]}"
                     case "spotter":
                         display_title = f"{matching_row['spectrum_id']}, {matching_row['spectrum_type']}"
@@ -1417,6 +1431,10 @@ def damping_seed_comparison_plot(col_org = False, plot_type = 'spectrumindividua
                             label = 'BretHFP'
                         elif 'SFP' in combined:
                             label = 'BretSFP'
+                        elif 'TPFP' in combined:
+                            label = 'BretTPFP'
+                        elif 'PFP' in combined:
+                            label = 'BretPFP'
                         else:
                             label = 'Bretschneider'
                     else:
@@ -1780,16 +1798,16 @@ def main():
     batch_kwargs.update(additional_batches)
 
     ###########TESTING WITH SMALLER SUBSET
-    #batch_names = ['batch_spotter_bret_SFP_30+_37450154_20260721']
+    batch_names = ['batch_spot_Bret_PFP_TPFP_30+_37730593_20260726']
     
     resolved_batches = run_analytics.resolve_hyak_batch_names(batch_names)
     #print(resolved_batches)
     batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
     ###########TESTING WITH SMALLER SUBSET
 
-    #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='avg_by_spec', **batch_kwargs)
+    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='avg_by_spec', **batch_kwargs)
     #print(batch_kwargs)
-    #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales', **batch_kwargs)
+    damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales', **batch_kwargs)
     #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_violin', damping_ref='all_scales', **batch_kwargs)
 
     #spectrum_nums=[104, 105, 192, 271]
@@ -1801,7 +1819,7 @@ def main():
     spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
     spectrum_ids = sorted(spectrum_ids + spec_ids_add)
     spectrum_nums = spectrum_ids
-    plot_overlayed_spectrums((spectrum_nums), plots_per_page=12, period=False, types=None, n_cols=4, metric_sv='energy', cumsum=False)
+    #plot_overlayed_spectrums((spectrum_nums), plots_per_page=12, period=False, types=None, n_cols=4, metric_sv='energy', cumsum=False)
     #plot_overlayed_spectrums((spectrum_nums), plots_per_page=12, period=False, types=['spotter', 'BretSFP', 'bretscneider'], n_cols=4, metric_sv='energy', cumsum=False)
     # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
     # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
