@@ -697,7 +697,7 @@ def resolve_hyak_batch_names(hyak_batch_names):
 
 ##################TESTING##################
 def main():
-    batch_names = ['batch_spot_Bret_PFP_TPFP_30+_37730593_20260726']
+    batch_names = ['batch_bret_30+_37950464_20260731']
     
     resolved_batches = resolve_hyak_batch_names(batch_names)
     batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
