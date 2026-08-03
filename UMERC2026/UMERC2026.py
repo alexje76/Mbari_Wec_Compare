@@ -124,6 +124,8 @@ def slide1spotter(spectrum=1000, name ="slide1spotter.png", types = ('spotter', 
         "bretschneider": {"label": "Bretschneider", "color": spectrums.get_color_for_spectrum_type("bretschneider"), "fmt": "plot"},
         "BretHFP": {"label": "BretHFP", "color": spectrums.get_color_for_spectrum_type("BretHFP"), "fmt": "plot"},
         "BretSFP": {"label": "BretSFP", "color": spectrums.get_color_for_spectrum_type("BretSFP"), "fmt": "plot"},
+        "BretTPFP": {"label": "BretTPFP", "color": spectrums.get_color_for_spectrum_type("BretTPFP"), "fmt": "plot"},
+        "BretPFP": {"label": "BretPFP", "color": spectrums.get_color_for_spectrum_type("BretPFP"), "fmt": "plot"},
         "jonswap": {"label": "Jonswap", "color": spectrums.get_color_for_spectrum_type("jonswap"), "fmt": "plot", "marker": "x"},
         "regular": {"label": "Regular", "color": spectrums.get_color_for_spectrum_type("regular"), "fmt": "vline", "alpha": 0.65},
         "regularHFP": {"label": "RegularHFP", "color": spectrums.get_color_for_spectrum_type("regularHFP"), "fmt": "vline", "alpha": 0.65}
@@ -2276,8 +2278,8 @@ def main():
     #     "batch_name4": "batch_results_20260315141339",
     #     "batch_name5": "batch_results_20260327142504",
     # }
-    slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=spectrum1simple, width=5, 
-                            heightper=5, title='Optimal Damping', **batches_slide2)
+    #slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=spectrum1simple, width=5, 
+    #                        heightper=5, title='Optimal Damping', **batches_slide2)
 
     ##Slide2
     print('now"slide2')
@@ -2287,8 +2289,8 @@ def main():
     # ##Slide3
     print('now"slide3')
     slide3spectrum = 297
-    slide1dampingcurve(name='slide3dampingcurve', metric='avg_tot_power', spectrum_id=slide3spectrum, width=5, 
-                            heightper=5, title='Optimal Damping', **batches_slide2)
+   # slide1dampingcurve(name='slide3dampingcurve', metric='avg_tot_power', spectrum_id=slide3spectrum, width=5, 
+   #                         heightper=5, title='Optimal Damping', **batches_slide2)
     slide1_damping_bar_single_spectrum(name = 'slide3damping_bar_single_spectrum', spectrum_id=slide3spectrum, title='', width=14, heightper=6, **batches_slide2) #297
     slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', verticaltitle='Difference from Indv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='', width=14, heightper=8, **batches_slide2)
 
@@ -2302,8 +2304,8 @@ def main():
     ##Slide5
     print('now"slide5')
     slide5spectrum = 437
-    slide1dampingcurve(name='slide5dampingcurve', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
-    slide1dampingcurve(name='slide5dampingcurvebret', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
+#    slide1dampingcurve(name='slide5dampingcurve', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
+    #slide1dampingcurve(name='slide5dampingcurvebret', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
 
     # ##Slide6
     # slide6spectrums = (437, 535)
@@ -2318,10 +2320,10 @@ def main():
     #PARAMETERIZATIONS SLIDE
     print('now"slideparams')
     slideparamspec = 437
-    slide1spotter(name='slideparam_spot', spectrum = slideparamspec, types=('spotter',), width=13, heightper=5) 
-    slide1spotter(name='slideparam_spot_b', spectrum = slideparamspec, types=('spotter', 'bretschneider'), width=13, heightper=5)
-    slide1spotter(name='slideparam_spot_b_TPFP', spectrum = slideparamspec, types=('spotter', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
-    slide1spotter(name='slideparam_spot_b_TPFP_PFP', spectrum = slideparamspec, types=('spotter', 'BretPFP', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
+    slide1spotter(name='slideparam_spot', spectrum = slideparamspec, types=('spotter',), title='', width=13, heightper=5) 
+    slide1spotter(name='slideparam_spot_b', spectrum = slideparamspec, types=('spotter', 'bretschneider'), title='', width=13, heightper=5)
+    slide1spotter(name='slideparam_spot_b_TPFP', spectrum = slideparamspec, types=('spotter', 'bretschneider', 'BretTPFP'), title='', width=13, heightper=5)
+    slide1spotter(name='slideparam_spot_b_TPFP_PFP', spectrum = slideparamspec, types=('spotter', 'BretPFP', 'bretschneider', 'BretTPFP'), title='', width=13, heightper=5)
 
 
     # #Slide 8
