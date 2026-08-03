@@ -1456,12 +1456,7 @@ def _resolve_spotter(group_data, prefix, metric):
 
 
 def _draw_violin(ax, positions, violin_data, violin_colors):
-    """
-    Draw violin bodies with jittered scatter overlay, mean/median annotations,
-    and single-point 'n=1' markers.  Returns the violinplot parts dict or None.
-    """
-    drawable     = [i for i, v in enumerate(violin_data) if len(v) >= 2]
-    single_point = [i for i, v in enumerate(violin_data) if len(v) <  2]
+    drawable = [i for i, v in enumerate(violin_data) if len(v) >= 2]
 
     parts = None
     if drawable:
@@ -1472,40 +1467,23 @@ def _draw_violin(ax, positions, violin_data, violin_colors):
             showmedians=True,
             showextrema=True
         )
+
         for pc, idx in zip(parts['bodies'], drawable):
             pc.set_facecolor(violin_colors[idx])
             pc.set_edgecolor('black')
             pc.set_alpha(0.7)
+
         for partname in ('cbars', 'cmins', 'cmaxes', 'cmeans', 'cmedians'):
             if partname in parts:
                 parts[partname].set_edgecolor('black')
                 parts[partname].set_linewidth(1.2)
 
-        for i, idx in enumerate(drawable):
-            data       = violin_data[idx]
-            mean_val   = float(np.mean(data))
-            median_val = float(np.median(data))
-            ax.annotate(
-                f"Mean: {mean_val:.2f}",
-                xy=(positions[idx], mean_val),
-                xytext=(-15, 10),
-                textcoords='offset points',
-                fontsize=8,
-                color='blue',
-                arrowprops=dict(arrowstyle='->', color='blue')
-            )
-            ax.annotate(
-                f"Median: {median_val:.2f}",
-                xy=(positions[idx], median_val),
-                xytext=(-15, -10),
-                textcoords='offset points',
-                fontsize=8,
-                color='green',
-                arrowprops=dict(arrowstyle='->', color='green')
-            )
-
     rng = np.random.default_rng(seed=42)
+
     for i, vals in enumerate(violin_data):
+        if len(vals) == 0:
+            continue
+
         jitter = rng.uniform(-0.06, 0.06, size=len(vals))
         ax.scatter(
             np.full(len(vals), positions[i]) + jitter,
@@ -1513,19 +1491,29 @@ def _draw_violin(ax, positions, violin_data, violin_colors):
             color='black',
             s=40,
             zorder=3,
-            alpha=0.8,
+            alpha=0.3,
             label='_nolegend_'
         )
 
-    for i in single_point:
+        mean_val = float(np.mean(vals))
+        median_val = float(np.median(vals))
         ax.annotate(
-            'n=1',
-            xy=(positions[i], violin_data[i][0]),
-            xytext=(0, 6),
+            f"n={len(vals)}\nmean={mean_val:.2f}\nmedian={median_val:.2f}",
+            xy=(positions[i], 1.0),
+            xycoords=('data', 'axes fraction'),
+            xytext=(0, 8),
             textcoords='offset points',
             ha='center',
-            fontsize=7,
-            color='dimgray'
+            va='bottom',
+            rotation=90,
+            fontsize=8,
+            clip_on=False,
+            bbox=dict(
+                boxstyle='round,pad=0.25',
+                facecolor='white',
+                edgecolor='gray',
+                alpha=0.85
+            )
         )
 
     return parts
@@ -1900,9 +1888,20 @@ def slide8_damping_violin_best_vs_types(
                       f"at SF {row[' ScaleFactor']} in group '{prefix}'.")
         spec_rows = deduped
 
+        # ← NEW: initialize before the loop
+        seen_type_per_group = set()
+
         for row in spec_rows:
             label = _type_label(row['spectrum_type'])
-            type_data_by_category[label].append(row['pct_diff'])
+            # ← NEW: guard
+            group_key = (label, prefix)
+            if group_key in seen_type_per_group:
+                print(f"[INFO] Suppressed extra '{label}' point for group '{prefix}'.")
+                continue
+            seen_type_per_group.add(group_key)
+            # ← unchanged from here
+            type_data_by_category[label].append((row['pct_diff'], prefix))
+            #type_data_by_category[label].append(row['pct_diff'])##MIN/MAX
             type_category_colors[label] = row['color']
 
     # ── Find best damping scale factor (mean pct-diff closest to 0%) ──────────
@@ -1963,10 +1962,18 @@ def slide8_damping_violin_best_vs_types(
 
 ###############################
 def main():
+    mbari_2022 = [114, 198, 260, 384, 532, 597]
+    mbari_2022_more = [729, 1239, 52, 363, 901, 270, 712, 803, 444]
+    mbari_2022_moremorea = [462, 494, 1255, 38]
+    mbari_2022_moremoreb = [62, 496]
+    spec_ids_add = mbari_2022 + mbari_2022_more + mbari_2022_moremorea + mbari_2022_moremoreb
+    spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
+    spectrum_ids = sorted(spectrum_ids + spec_ids_add)
+    print(len(spectrum_ids))
     # Define names that will be used throughout
     spectrum1simple = 437
     batches_slide2 = resolve_hyak_batch_names({
-        'batch_spot_Bret_PFP_TPFP_30+_37730593_20260726',
+        'batch_spot_Bret_PFP_TPFP_30+_37730593_20260726', 'batch_bret_30+_37950464_20260731',
         })
     batches_slide2 = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(batches_slide2)}
 
@@ -2006,7 +2013,7 @@ def main():
     ##Slide5
     slide5spectrum = 363
     # slide1dampingcurve(name='slide5dampingcurve', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
-    slide1dampingcurve(name='slide5dampingcurvebret', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
+    #slide1dampingcurve(name='slide5dampingcurvebret', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
 
     # ##Slide6
     # slide6spectrums = (437, 535)
@@ -2019,7 +2026,7 @@ def main():
     # slide6spotter(name='slide7dampingspot_bretPFP', spectra = slide6spectrums, types=('spotter', 'BretPFP'), width=10, heightper=5)
 
     # #Slide 8
-    # slide8_damping_violin_best_vs_types(name = 'slide8dampingviolinscalefactor', exclude_types=['BretSFP', 'BretHFP'], exclude_spectrum_ids=[882, 1031, 1045], title='',  **batches_slide2)
+    slide8_damping_violin_best_vs_types(name = 'slide8dampingviolinscalefactor', exclude_types=['BretSFP', 'BretHFP'], exclude_spectrum_ids=[882, 1031, 1045], title='',  **batches_slide2)
 
 
 
