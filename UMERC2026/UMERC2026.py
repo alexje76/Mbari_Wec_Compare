@@ -181,7 +181,7 @@ def slide1spotter(spectrum=1000, name ="slide1spotter.png", types = ('spotter', 
             ax.set_title(f"{title}", fontsize=fontsizetitle)
             ax.set_xlabel(xlabel, fontsize=fontsizelabel)
             if idx % 2 == 0:
-                ax.set_ylabel('Spectral Density (m^2/Hz)', fontsize=fontsizelabel)
+                ax.set_ylabel(r'Spectral Density (m$^2$/Hz)', fontsize=fontsizelabel)
             ax.grid(True, linestyle='--', alpha=0.5)
             ax.legend(fontsize=fontsizelabel)
             ax.tick_params(axis='both', labelsize=16)
@@ -415,7 +415,7 @@ def slide1dampingcurve(
             )
 
         ax.set_title(f"Spectrum: {prefix}", fontsize=fontsizetitle)
-        ax.set_xlabel('Scale Factor', fontsize=fontsizelabel)
+        ax.set_xlabel('Normalized Damping', fontsize=fontsizelabel)
         ax.set_ylabel(verticaltitle, fontsize=fontsizelabel)
         ax.legend(fontsize=fontsizelabel)
         ax.grid(True, linestyle='--', alpha=0.5)
@@ -1464,7 +1464,7 @@ def _draw_violin(ax, positions, violin_data, violin_colors):
             [violin_data[i] for i in drawable],
             positions=[positions[i] for i in drawable],
             showmeans=True,
-            showmedians=True,
+            showmedians=False,
             showextrema=True
         )
 
@@ -1497,24 +1497,24 @@ def _draw_violin(ax, positions, violin_data, violin_colors):
 
         mean_val = float(np.mean(vals))
         median_val = float(np.median(vals))
-        ax.annotate(
-            f"n={len(vals)}\nmean={mean_val:.2f}\nmedian={median_val:.2f}",
-            xy=(positions[i], 1.0),
-            xycoords=('data', 'axes fraction'),
-            xytext=(0, 8),
-            textcoords='offset points',
-            ha='center',
-            va='bottom',
-            rotation=90,
-            fontsize=8,
-            clip_on=False,
-            bbox=dict(
-                boxstyle='round,pad=0.25',
-                facecolor='white',
-                edgecolor='gray',
-                alpha=0.85
-            )
-        )
+        # ax.annotate(
+        #     f"n={len(vals)}\nmean={mean_val:.2f}\nmedian={median_val:.2f}",
+        #     xy=(positions[i], 1.0),
+        #     xycoords=('data', 'axes fraction'),
+        #     xytext=(0, 8),
+        #     textcoords='offset points',
+        #     ha='center',
+        #     va='bottom',
+        #     rotation=90,
+        #     fontsize=8,
+        #     clip_on=False,
+        #     bbox=dict(
+        #         boxstyle='round,pad=0.25',
+        #         facecolor='white',
+        #         edgecolor='gray',
+        #         alpha=0.85
+        #     )
+        # )
 
     return parts
 
@@ -1737,7 +1737,7 @@ def slide1_damping_violin_by_scalefactor(
 # FUNCTION 3 — Violin: best damping SF vs non-spotter spectrum types
 # ═════════════════════════════════════════════════════════════════════════════
 
-def slide8_damping_violin_best_vs_types(
+def old_slide8_damping_violin_best_vs_types(
     name="damping_violin_best_vs_types.png",
     metric='avg_tot_power',
     fontsizetitle=24,
@@ -1924,7 +1924,7 @@ def slide8_damping_violin_best_vs_types(
     violin_colors  = []
 
     if show_best_damping:
-        best_label = f"Best Damping\n(SF={best_sf})"
+        best_label = f"Avg. Best Damping\n(ND={best_sf})"
         category_order.append(best_label)
         violin_data.append([v for v, _ in sf_data_by_category[best_sf]])  # Extract just values MIN/MAX
         violin_colors.append('#555555')
@@ -1971,23 +1971,248 @@ def slide8_damping_violin_best_vs_types(
     # ── Rebuild violin_data with clean numeric lists ────────────────────────
     violin_data = []
     if show_best_damping:
-        violin_data.append([v for v, _ in sf_data_by_category[best_sf]])  # Extract just values
+        violin_data.append([v for v, _ in sf_data_by_category[best_sf]])
+
     for label in sorted(type_data_by_category.keys()):
-        if not label.startswith("Best Damping"):
-            violin_data.append(type_data_by_category[label])
+        if exclude_types and label in exclude_types:
+            continue
+        violin_data.append(type_data_by_category[label])
 #END MIN/MAX
 
     # ── Draw ──────────────────────────────────────────────────────────────────
     fig, ax = plt.subplots(
-        figsize=(max(8, len(category_order) * 1.8), heightper),
+        #figsize=(max(8, len(category_order) * 1.8), heightper),
+        figsize=(width, heightper),
         constrained_layout=True
     )
-    positions = list(range(len(category_order)))
+    positions = list(range(len(violin_data)))  # minimal fix
     _draw_violin(ax, positions, violin_data, violin_colors)
 
     ax.set_title(title, fontsize=fontsizetitle)
     ax.set_xticks(positions)
-    ax.set_xticklabels(category_order, rotation=45, ha='right', fontsize=fontsizelabel)
+    ax.set_xticklabels(category_order[:len(violin_data)], rotation=45, ha='right', fontsize=fontsizelabel)
+    ax.set_ylabel(verticaltitle, fontsize=fontsizelabel)
+    ax.tick_params(axis='y', labelsize=fontsizelabel - 4)
+    ax.axhline(y=0, linewidth=1, color='k', linestyle='--', alpha=0.6)
+    ax.grid(True, alpha=0.3, axis='y')
+
+    _save_figure(fig, name)
+
+def slide8_damping_violin_best_vs_types(
+    name="damping_violin_best_vs_types.png",
+    metric='avg_tot_power',
+    fontsizetitle=24,
+    fontsizelabel=20,
+    exclude_types=None,
+    exclude_spectrum_ids: list[int] | None = None,
+    width=16,
+    heightper=9,
+    verticaltitle='Percent Difference from Spotter Peak Energy (%)',
+    title='Optimal Damping vs Spectrum Type',
+    show_best_damping=True,
+    **kwargs
+):
+    """Plot best damping and/or non-spotter spectrum-type distributions."""
+    function_data = _load_and_filter(kwargs)
+    function_data = _build_spectrum_metadata(
+        function_data,
+        spectrums.read_spectrums()
+    )
+
+    if exclude_spectrum_ids:
+        function_data = function_data[
+            ~function_data['spectrum_id'].isin(exclude_spectrum_ids)
+        ]
+
+    if function_data.empty:
+        print("[ERROR] No data available after filtering. Aborting.")
+        return
+
+    spectrum_col = ' IncWaveSpectrumType;IncWaveSpectrumParams'
+    spectrum = function_data[spectrum_col].dropna().unique()
+    title_map = function_data.set_index(spectrum_col)['display_title'].to_dict()
+    spectrum = _sort_spectrum_keys(spectrum, title_map)
+    groups = _group_by_root_id(spectrum, function_data)
+
+    excluded_types = {str(t).lower() for t in (exclude_types or [])}
+    sf_data_by_category = defaultdict(list)
+    type_data_by_category = defaultdict(list)
+    type_category_colors = {}
+
+    for prefix, spec_list in groups.items():
+        group_data = function_data[function_data[spectrum_col].isin(spec_list)]
+        _, avg_data_spot, spot_max_val = _resolve_spotter(
+            group_data, prefix, metric
+        )
+        if avg_data_spot is None or spot_max_val == 0:
+            continue
+
+        # Store damping values together with the group ID for reporting.
+        for _, row in avg_data_spot.iterrows():
+            pct_diff = (row[metric] - spot_max_val) / spot_max_val * 100
+            sf_data_by_category[row[' ScaleFactor']].append(
+                (pct_diff, prefix.split(',')[0])
+            )
+
+        # Find the non-spotter spectrum type value for this group.
+        spec_rows = []
+        for spec in spec_list:
+            spec_data = function_data[function_data[spectrum_col] == spec]
+            if spec_data.empty:
+                continue
+
+            raw_types = spec_data['possible_spectrum_types'].iloc[0]
+            if pd.notna(raw_types) and '|' in str(raw_types):
+                possible_types = str(raw_types).split('|')
+            else:
+                possible_types = [spec_data['spectrum_type'].iloc[0]]
+
+            possible_types = [str(t) for t in possible_types]
+            if all(t.lower() == 'spotter' for t in possible_types):
+                continue
+
+            avg_data = spec_data.groupby(' ScaleFactor')[metric].mean().reset_index()
+            if avg_data.empty:
+                continue
+
+            best_sf_for_spec = avg_data.loc[avg_data[metric].idxmax(), ' ScaleFactor']
+            spotter_row = avg_data_spot[
+                avg_data_spot[' ScaleFactor'] == best_sf_for_spec
+            ]
+            if spotter_row.empty:
+                print(
+                    f"\n[WARNING] SF {best_sf_for_spec} from spectrum '{spec}' "
+                    f"not found in spotter data for group '{prefix}'. Skipping."
+                )
+                continue
+
+            spotter_val = spotter_row[metric].iloc[0]
+            pct_diff = (spotter_val - spot_max_val) / spot_max_val * 100
+            fallback_color = spec_data['color'].iloc[0]
+
+            for spectrum_type in possible_types:
+                if spectrum_type.lower() == 'spotter':
+                    continue
+                if spectrum_type.lower() in excluded_types:
+                    continue
+
+                label = _type_label(spectrum_type)
+                if label.lower() in excluded_types:
+                    continue
+
+                color = (
+                    spectrums.get_color_for_spectrum_type(spectrum_type)
+                    if len(possible_types) > 1
+                    else fallback_color
+                )
+                spec_rows.append({
+                    'label': label,
+                    'scale_factor': best_sf_for_spec,
+                    'pct_diff': pct_diff,
+                    'color': color,
+                })
+
+        # One point per normalized type per group.
+        seen_labels = set()
+        for row in spec_rows:
+            label = row['label']
+            if label in seen_labels:
+                print(
+                    f"[INFO] Suppressed extra '{label}' point for group "
+                    f"'{prefix}'."
+                )
+                continue
+            seen_labels.add(label)
+            type_data_by_category[label].append(
+                (row['pct_diff'], prefix.split(',')[0])
+            )
+            type_category_colors[label] = row['color']
+
+    if not sf_data_by_category:
+        print(
+            "[ERROR] No scale factor data accumulated. "
+            "Cannot determine best SF. Aborting."
+        )
+        return
+
+    best_sf = min(
+        sf_data_by_category,
+        key=lambda sf: abs(np.mean([v for v, _ in sf_data_by_category[sf]]))
+    )
+    best_sf_values = [v for v, _ in sf_data_by_category[best_sf]]
+    best_sf_mean = float(np.mean(best_sf_values))
+
+    print(
+        f"\n[INFO] Best damping scale factor: SF={best_sf} "
+        f"(mean % diff = {best_sf_mean:.3f}% across "
+        f"{len(best_sf_values)} groups)"
+    )
+
+    # Report extrema before converting type data to numeric-only lists.
+    if show_best_damping and best_sf_values:
+        best_ids = [group_id for _, group_id in sf_data_by_category[best_sf]]
+        max_idx = int(np.argmax(best_sf_values))
+        min_idx = int(np.argmin(best_sf_values))
+        print(
+            f"Best Damping (SF={best_sf}): "
+            f"max_id={best_ids[max_idx]} ({best_sf_values[max_idx]:.2f}%), "
+            f"min_id={best_ids[min_idx]} ({best_sf_values[min_idx]:.2f}%)"
+        )
+
+    for label in sorted(type_data_by_category):
+        values_with_ids = type_data_by_category[label]
+        if not values_with_ids:
+            continue
+        values = [v for v, _ in values_with_ids]
+        ids = [group_id for _, group_id in values_with_ids]
+        max_idx = int(np.argmax(values))
+        min_idx = int(np.argmin(values))
+        print(
+            f"{label}: max_id={ids[max_idx]} ({values[max_idx]:.2f}%), "
+            f"min_id={ids[min_idx]} ({values[min_idx]:.2f}%)"
+        )
+        type_data_by_category[label] = values
+
+    # Build all plotting arrays together so their lengths always match.
+    category_order = []
+    violin_data = []
+    violin_colors = []
+
+    if show_best_damping:
+        category_order.append(f"Avg. Best Damping\n(ND={best_sf})")
+        violin_data.append(best_sf_values)
+        violin_colors.append('#555555')
+
+    for label in sorted(type_data_by_category):
+        if label.lower() in excluded_types:
+            continue
+        values = type_data_by_category[label]
+        if not values:
+            continue
+        category_order.append(label)
+        violin_data.append(values)
+        violin_colors.append(type_category_colors[label])
+
+    if not violin_data:
+        print("[ERROR] No data available to plot. Aborting.")
+        return
+
+    positions = list(range(len(violin_data)))
+
+    fig, ax = plt.subplots(
+        figsize=(width, heightper),
+        constrained_layout=True
+    )
+    _draw_violin(ax, positions, violin_data, violin_colors)
+
+    ax.set_title(title, fontsize=fontsizetitle)
+    ax.set_xticks(positions)
+    ax.set_xticklabels(
+        category_order,
+        rotation=45,
+        ha='right',
+        fontsize=fontsizelabel
+    )
     ax.set_ylabel(verticaltitle, fontsize=fontsizelabel)
     ax.tick_params(axis='y', labelsize=fontsizelabel - 4)
     ax.axhline(y=0, linewidth=1, color='k', linestyle='--', alpha=0.6)
@@ -2038,9 +2263,9 @@ def main():
     # slide2seastates(name='slide2seastateshighlighted', title='', width=14, heightper=6, **batches_slide2)
 
     # ##Slide3
-    # slide3spectrum = 297
-    # slide1_damping_bar_single_spectrum(name = 'slide3damping_bar_single_spectrum', spectrum_id=slide3spectrum, title='', width=14, heightper=6, **batches_slide2) #297
-    # slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', title='', width=14, heightper=8, **batches_slide2)
+    slide3spectrum = 297
+    slide1_damping_bar_single_spectrum(name = 'slide3damping_bar_single_spectrum', spectrum_id=slide3spectrum, title='', width=14, heightper=6, **batches_slide2) #297
+    slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', title='', width=14, heightper=8, **batches_slide2)
 
     # ##Slide4
     # slide4spectrum = 437
@@ -2064,7 +2289,8 @@ def main():
     # slide6spotter(name='slide7dampingspot_bretPFP', spectra = slide6spectrums, types=('spotter', 'BretPFP'), width=10, heightper=5)
 
     # #Slide 8
-    slide8_damping_violin_best_vs_types(name = 'slide8dampingviolinscalefactor', exclude_types=['BretSFP', 'BretHFP'], exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
+    #slide8_damping_violin_best_vs_types(name = 'slide8dampingvioli', exclude_types=['BretSFP', 'BretHFP', 'bretschneider', 'BretPFP', 'BretTPFP'], exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
+    slide8_damping_violin_best_vs_types(name = 'slide8dampingviolinscalefactor', exclude_types=['BretSFP', 'BretHFP'], verticaltitle='Difference from Inv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
 
 
 
