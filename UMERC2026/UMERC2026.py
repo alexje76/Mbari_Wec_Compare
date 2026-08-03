@@ -1645,6 +1645,7 @@ def slide1_damping_violin_by_scalefactor(
     fontsizelabel=20,
     width=16,
     heightper=9,
+    exclude_spectrum_ids=None,
     verticaltitle='Percent Difference from Spotter Peak Energy (%)',
     title='Damping Scale Factor Sensitivity across Spectrums',
     **kwargs
@@ -1682,6 +1683,16 @@ def slide1_damping_violin_by_scalefactor(
     function_data = _load_and_filter(kwargs)
     function_data = _build_spectrum_metadata(function_data, spectrums.read_spectrums())
 
+    # Match slide 8: exclude selected spectrum IDs before grouping/calculating.
+    if exclude_spectrum_ids:
+        function_data = function_data[
+            ~function_data['spectrum_id'].isin(exclude_spectrum_ids)
+        ]
+
+    if function_data.empty:
+        print("[ERROR] No data available after filtering. Aborting.")
+        return
+
     spectrum  = function_data[' IncWaveSpectrumType;IncWaveSpectrumParams'].unique()
     title_map = function_data.set_index(
         ' IncWaveSpectrumType;IncWaveSpectrumParams')['display_title'].to_dict()
@@ -1716,18 +1727,32 @@ def slide1_damping_violin_by_scalefactor(
     x_labels      = [str(sf) for sf in ordered_sfs]
 
     # ── Draw ──────────────────────────────────────────────────────────────────
+    # ── Draw ──────────────────────────────────────────────────────────────────
     fig, ax = plt.subplots(
-        figsize=(max(8, len(ordered_sfs) * 1.8), heightper),
+        figsize=(width, heightper),
         constrained_layout=True
     )
+
     _draw_violin(ax, positions, violin_data, violin_colors)
 
     ax.set_title(title, fontsize=fontsizetitle)
     ax.set_xticks(positions)
-    ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=fontsizelabel)
+    ax.set_xticklabels(
+        x_labels,
+        rotation=45,
+        ha='right',
+        fontsize=fontsizelabel
+    )
+    ax.set_xlabel('Normalized Damping', fontsize=fontsizelabel)
     ax.set_ylabel(verticaltitle, fontsize=fontsizelabel)
     ax.tick_params(axis='y', labelsize=fontsizelabel - 4)
-    ax.axhline(y=0, linewidth=1, color='k', linestyle='--', alpha=0.6)
+    ax.axhline(
+        y=0,
+        linewidth=1,
+        color='k',
+        linestyle='--',
+        alpha=0.6
+    )
     ax.grid(True, alpha=0.3, axis='y')
 
     _save_figure(fig, name)
@@ -2242,7 +2267,7 @@ def main():
 
     # Create Graphs
     ##Slide1
-    # slide1spotter(spectrum = spectrum1simple, types=('spotter'), width=5, heightper=5, title='Wave Spectrum')
+    slide1spotter(spectrum = spectrum1simple, types=('spotter'), width=5, heightper=5, title='Wave Spectrum')
 
     # additional_batches_slide1 = {
     #     "batch_name": "batch_results_20260213182532",
@@ -2251,32 +2276,34 @@ def main():
     #     "batch_name4": "batch_results_20260315141339",
     #     "batch_name5": "batch_results_20260327142504",
     # }
-    # slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=spectrum1simple, width=5, 
-    #                         heightper=5, title='Optimal Damping', **batches_slide2)
+    slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=spectrum1simple, width=5, 
+                            heightper=5, title='Optimal Damping', **batches_slide2)
 
-    # ##Slide2
-    # slide2seastates(highlight=False, name='slide2seastatesunhighlighted', title='', width=14, heightper=6)
-    # batches_slide2 = resolve_hyak_batch_names({
-    #     'batch_spot_Bret_PFP_TPFP_30+_37730593_20260726',
-    #     })
-    # batches_slide2 = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(batches_slide2)}
-    # slide2seastates(name='slide2seastateshighlighted', title='', width=14, heightper=6, **batches_slide2)
+    ##Slide2
+    print('now"slide2')
+    slide2seastates(highlight=False, name='slide2seastatesunhighlighted', title='', width=14, heightper=6)
+    slide2seastates(name='slide2seastateshighlighted', title='', width=14, heightper=6, **batches_slide2)
 
     # ##Slide3
+    print('now"slide3')
     slide3spectrum = 297
+    slide1dampingcurve(name='slide3dampingcurve', metric='avg_tot_power', spectrum_id=slide3spectrum, width=5, 
+                            heightper=5, title='Optimal Damping', **batches_slide2)
     slide1_damping_bar_single_spectrum(name = 'slide3damping_bar_single_spectrum', spectrum_id=slide3spectrum, title='', width=14, heightper=6, **batches_slide2) #297
-    slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', title='', width=14, heightper=8, **batches_slide2)
+    slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', verticaltitle='Difference from Indv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='', width=14, heightper=8, **batches_slide2)
 
-    # ##Slide4
-    # slide4spectrum = 437
-    # slide2seastates(name='slide4seastate_highlighted', highlight_id = slide4spectrum, title='', width=14, heightper=6, highlight_width=3)
-    # slide1spotter(name='slide4spot', spectrum = slide4spectrum, width=15, heightper=7, types=('spotter'))
-    # slide1spotter(name='slide4spotbret', spectrum = slide4spectrum, width=15, heightper=7, types=('spotter', 'bretschneider', 'BretPFP'))
+    ##Slide4 Lookup
+    print('now"slide4')
+    slide4spectrum = 437
+    slide2seastates(name='slide4seastate_highlighted', highlight_id = slide4spectrum, title='', width=14, heightper=6, highlight_width=3)
+    slide1spotter(name='slide4spot', spectrum = slide4spectrum, title='', width=15, heightper=7, types=('spotter'))
+    slide1spotter(name='slide4spotbret', spectrum = slide4spectrum, title='', width=15, heightper=7, types=('spotter', 'bretschneider', 'BretPFP'))
 
     ##Slide5
-    slide5spectrum = 363
-    # slide1dampingcurve(name='slide5dampingcurve', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
-    #slide1dampingcurve(name='slide5dampingcurvebret', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
+    print('now"slide5')
+    slide5spectrum = 437
+    slide1dampingcurve(name='slide5dampingcurve', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
+    slide1dampingcurve(name='slide5dampingcurvebret', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
 
     # ##Slide6
     # slide6spectrums = (437, 535)
@@ -2284,13 +2311,23 @@ def main():
     # slide6spotter(name='slide6dampingspot_bretTPFP', spectra = slide6spectrums, types=('spotter', 'BretTPFP'), width=10, heightper=5)
 
     # #slide 7
-    # slide6spectrums = (456, 846)
+    #slide6spectrums = (437, 456, 846)
     # slide6spotter(name='slide7dampingspot', spectra = slide6spectrums, types=('spotter',), width=10, heightper=5)
-    # slide6spotter(name='slide7dampingspot_bretPFP', spectra = slide6spectrums, types=('spotter', 'BretPFP'), width=10, heightper=5)
+    #slide6spotter(name='slide7dampingspot_bretPFP', spectra = slide6spectrums, types=('spotter', 'BretPFP', 'bretschneider', 'BretTPFP'), width=10, heightper=5)
+
+    #PARAMETERIZATIONS SLIDE
+    print('now"slideparams')
+    slideparamspec = 437
+    slide1spotter(name='slideparam_spot', spectra = slideparamspec, types=('spotter',), width=13, heightper=5) 
+    slide1spotter(name='slideparam_spot_b', spectra = slideparamspec, types=('spotter', 'bretschneider'), width=13, heightper=5)
+    slide1spotter(name='slideparam_spot_b_TPFP', spectra = slideparamspec, types=('spotter', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
+    slide1spotter(name='slideparam_spot_b_TPFP_PFP', spectra = slideparamspec, types=('spotter', 'BretPFP', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
+
 
     # #Slide 8
-    #slide8_damping_violin_best_vs_types(name = 'slide8dampingvioli', exclude_types=['BretSFP', 'BretHFP', 'bretschneider', 'BretPFP', 'BretTPFP'], exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
-    slide8_damping_violin_best_vs_types(name = 'slide8dampingviolinscalefactor', exclude_types=['BretSFP', 'BretHFP'], verticaltitle='Difference from Inv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
+    print('now"slideviolinfinal')
+    #WILL POWERCAD slide8_damping_violin_best_vs_types(name = 'slide8dampingvioli', exclude_types=['BretSFP', 'BretHFP', 'bretschneider', 'BretPFP', 'BretTPFP'], exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
+    slide8_damping_violin_best_vs_types(name = 'slide8dampingviolinscalefactor', exclude_types=['BretSFP', 'BretHFP'], verticaltitle='Difference from Indv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
 
 
 
