@@ -2318,10 +2318,10 @@ def main():
     #PARAMETERIZATIONS SLIDE
     print('now"slideparams')
     slideparamspec = 437
-    slide1spotter(name='slideparam_spot', spectra = slideparamspec, types=('spotter',), width=13, heightper=5) 
-    slide1spotter(name='slideparam_spot_b', spectra = slideparamspec, types=('spotter', 'bretschneider'), width=13, heightper=5)
-    slide1spotter(name='slideparam_spot_b_TPFP', spectra = slideparamspec, types=('spotter', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
-    slide1spotter(name='slideparam_spot_b_TPFP_PFP', spectra = slideparamspec, types=('spotter', 'BretPFP', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
+    slide1spotter(name='slideparam_spot', spectrum = slideparamspec, types=('spotter',), width=13, heightper=5) 
+    slide1spotter(name='slideparam_spot_b', spectrum = slideparamspec, types=('spotter', 'bretschneider'), width=13, heightper=5)
+    slide1spotter(name='slideparam_spot_b_TPFP', spectrum = slideparamspec, types=('spotter', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
+    slide1spotter(name='slideparam_spot_b_TPFP_PFP', spectrum = slideparamspec, types=('spotter', 'BretPFP', 'bretschneider', 'BretTPFP'), width=13, heightper=5)
 
 
     # #Slide 8
