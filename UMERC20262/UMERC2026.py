@@ -208,6 +208,7 @@ def slide1dampingcurve(
     width=16,
     heightper=9,
     verticaltitle='Average Power (W)',
+    legend = True,
     **kwargs
 ):
     """
@@ -425,7 +426,8 @@ def slide1dampingcurve(
         ax.set_title(f"Spectrum: {prefix}", fontsize=fontsizetitle)
         ax.set_xlabel('Normalized Damping', fontsize=fontsizelabel)
         ax.set_ylabel(verticaltitle, fontsize=fontsizelabel)
-        ax.legend(fontsize=fontsizelabel)
+        if legend:
+            ax.legend(fontsize=fontsizelabel)
         ax.grid(True, linestyle='--', alpha=0.5)
         ax.tick_params(axis='both', labelsize=16)
 
@@ -2246,7 +2248,7 @@ def slide8_damping_violin_best_vs_types(
     ax.set_xticks(positions)
     ax.set_xticklabels(
         category_order,
-        rotation=45,
+        rotation=60,
         ha='right',
         fontsize=fontsizelabel
     )
@@ -2279,7 +2281,7 @@ def main():
 
     # Create Graphs
     ##Slide1
-    slide1spotter(spectrum = spectrum1simple, types=('spotter'), width=5, heightper=5, title='Wave Spectrum')
+    slide1spotter(spectrum = spectrum1simple, types=('spotter'), width=4, heightper=4, title='Wave Spectrum')
 
     # additional_batches_slide1 = {
     #     "batch_name": "batch_results_20260213182532",
@@ -2288,8 +2290,8 @@ def main():
     #     "batch_name4": "batch_results_20260315141339",
     #     "batch_name5": "batch_results_20260327142504",
     # }
-    slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=spectrum1simple, width=5, 
-                            heightper=5, title='Optimal Damping', **batches_slide2)
+    slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=spectrum1simple, width=4, 
+                            heightper=4, title='Optimal Damping', **batches_slide2)
 
     ##Slide2
     print('now"slide2')
@@ -2300,9 +2302,9 @@ def main():
     print('now"slide3')
     slide3spectrum = 737
     slide1dampingcurve(name='slide3dampingcurve', metric='avg_tot_power', spectrum_id=slide3spectrum, width=5, 
-                            heightper=5, title='Optimal Damping', **batches_slide2)
+                            heightper=5, title='Optimal Damping', legend=False, **batches_slide2)
     slide1_damping_bar_single_spectrum(name = 'slide3damping_bar_single_spectrum', spectrum_id=slide3spectrum, title='', width=14, heightper=6, **batches_slide2) #297
-    slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', verticaltitle='Difference from Indv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='', width=13, heightper=7, **batches_slide2)
+    slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', verticaltitle='Difference from Indv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='', width=12, heightper=6, **batches_slide2)
 
     ##Slide4 Lookup
     print('now"slide4')
@@ -2313,9 +2315,9 @@ def main():
 
     ##Slide5
     print('now"slide5')
-    slide5spectrum = 737
-    slide1dampingcurve(name='slide5dampingcurve', title='', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
-    slide1dampingcurve(name='slide5dampingcurvebret', title='', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
+    slide5spectrum = 729 
+    slide1dampingcurve(name='slide5dampingcurve', title='', metric='avg_tot_power', spectrum_id=slide5spectrum, width=5, heightper=5, **batches_slide2)
+    slide1dampingcurve(name='slide5dampingcurvebret', title='', metric='avg_tot_power', spectrum_id=slide5spectrum, width=5, heightper=5, spectrum_types=('all'), **batches_slide2)
 
     #PARAMETERIZATIONS SLIDE
     print('now"slideparams')
