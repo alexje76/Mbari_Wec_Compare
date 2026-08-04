@@ -451,6 +451,8 @@ def slide2seastates(
     heightper=9,
     base_marker_size=9,
     highlight_width=1.75,
+    legend = False,
+    grid = False,
     **kwargs,
 ):
     """
@@ -605,8 +607,10 @@ def slide2seastates(
     )
     ax.set_xlabel('Frequency (Hz)', fontsize=fontsizelabel)
     ax.set_ylabel('Significant Wave Height (m)', fontsize=fontsizelabel)
-    ax.grid(True, linestyle='--', alpha=0.5)
-    ax.legend(fontsize=fontsizelabel)
+    if grid:
+        ax.grid(True, linestyle='--', alpha=0.5)
+    if legend:
+        ax.legend(fontsize=fontsizelabel)
     ax.tick_params(axis='both', labelsize=16)
 
     # ── 6. Save ───────────────────────────────────────────────────────────────
@@ -2294,9 +2298,9 @@ def main():
 
     # ##Slide3
     print('now"slide3')
-    slide3spectrum = 437
-   # slide1dampingcurve(name='slide3dampingcurve', metric='avg_tot_power', spectrum_id=slide3spectrum, width=5, 
-   #                         heightper=5, title='Optimal Damping', **batches_slide2)
+    slide3spectrum = 737
+    slide1dampingcurve(name='slide3dampingcurve', metric='avg_tot_power', spectrum_id=slide3spectrum, width=5, 
+                            heightper=5, title='Optimal Damping', **batches_slide2)
     slide1_damping_bar_single_spectrum(name = 'slide3damping_bar_single_spectrum', spectrum_id=slide3spectrum, title='', width=14, heightper=6, **batches_slide2) #297
     slide1_damping_violin_by_scalefactor(name = 'slide3dampingviolinscalefactor', verticaltitle='Difference from Indv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='', width=13, heightper=7, **batches_slide2)
 
@@ -2309,19 +2313,9 @@ def main():
 
     ##Slide5
     print('now"slide5')
-    slide5spectrum = 437
-#    slide1dampingcurve(name='slide5dampingcurve', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
-    slide1dampingcurve(name='slide5dampingcurvebret', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
-
-    # ##Slide6
-    # slide6spectrums = (437, 535)
-    # slide6spotter(name='slide6dampingspot', spectra = slide6spectrums, types=('spotter',), width=10, heightper=5)
-    # slide6spotter(name='slide6dampingspot_bretTPFP', spectra = slide6spectrums, types=('spotter', 'BretTPFP'), width=10, heightper=5)
-
-    # #slide 7
-    #slide6spectrums = (437, 456, 846)
-    # slide6spotter(name='slide7dampingspot', spectra = slide6spectrums, types=('spotter',), width=10, heightper=5)
-    #slide6spotter(name='slide7dampingspot_bretPFP', spectra = slide6spectrums, types=('spotter', 'BretPFP', 'bretschneider', 'BretTPFP'), width=10, heightper=5)
+    slide5spectrum = 737
+    slide1dampingcurve(name='slide5dampingcurve', title='', metric='avg_tot_power', spectrum_id=slide5spectrum, **batches_slide2)
+    slide1dampingcurve(name='slide5dampingcurvebret', title='', metric='avg_tot_power', spectrum_id=slide5spectrum, spectrum_types=('all'), **batches_slide2)
 
     #PARAMETERIZATIONS SLIDE
     print('now"slideparams')
@@ -2336,43 +2330,6 @@ def main():
     print('now"slideviolinfinal')
     #WILL POWERCAD slide8_damping_violin_best_vs_types(name = 'slide8dampingvioli', exclude_types=['BretSFP', 'BretHFP', 'bretschneider', 'BretPFP', 'BretTPFP'], exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
     slide8_damping_violin_best_vs_types(name = 'slide8dampingviolinscalefactor', exclude_types=['BretSFP', 'BretHFP'], verticaltitle='Difference from Indv. Best Damping (%)', exclude_spectrum_ids=[822, 1031, 1045], title='',  **batches_slide2)
-
-
-
-
-    # ###########TESTING WITH SMALLER SUBSET
-    # batch_names = ['batch_spotter_bret_SFP_30+_37450154_20260721']
-    
-    # resolved_batches = run_analytics.resolve_hyak_batch_names(batch_names)
-    # print(resolved_batches)
-    # batch_kwargs = {f'batch_name{i+1 if i > 0 else ""}': name for i, name in enumerate(resolved_batches)}
-    # ###########TESTING WITH SMALLER SUBSET
-
-    # #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='avg_by_spec', **batch_kwargs)
-    # print(batch_kwargs)
-    # damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales', **batch_kwargs)
-    # #damping_seed_comparison_plot(metric='avg_tot_power', cols=4, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_violin', damping_ref='all_scales', **batch_kwargs)
-
-    # # #spectrum_nums=[104, 105, 192, 271]
-    # # mbari_2022 = [114, 198, 260, 384, 532, 597]
-    # # mbari_2022_more = [729, 1239, 52, 363, 901, 270, 712, 803, 444]
-    # # mbari_2022_moremorea = [462, 494, 1255, 38]
-    # # mbari_2022_moremoreb = [62, 496]
-    # # spec_ids_add = mbari_2022 + mbari_2022_more + mbari_2022_moremorea + mbari_2022_moremoreb
-    # # spectrum_ids   = [18, 83, 107, 297, 303, 371, 412, 429, 437, 454, 456, 484, 535, 570, 619, 737, 757, 758, 805, 819, 822, 833, 838, 846, 1031, 1045, 1115, 1143, 1174, 1181]
-    # # spectrum_ids = sorted(spectrum_ids + spec_ids_add)
-    # # spectrum_nums = spectrum_ids
-    # # #plot_overlayed_spectrums((spectrum_nums), plots_per_page=8, period=False, types=['spotter', 'BretSFP', 'bretscneider'], n_cols=4, metric_sv='energy', cumsum=False)
-    # # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    # # # # damping_seed_comparison_plot(batch_name='batch_results_20260518185853',  metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
-    # # # # # #out = heatmap_RXO(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='max_spring_range', error_removal=True, one_physics_step =0.01, val_plotted=False, damping_values=True, RXO = 1.5, csv_data = True)
-
-    # # # # spectrum_nums = spectrums.spectrum_list()
-    # # # # # #out = hack_heatmap_plot(batch_name='batch_results_20260114105529', batch_name2='batch_results_20260110154141', value='avg_tot_power', error_removal=True, one_physics_step   =0.01, val_plotted=False, damping_values=True, REO = 0.5)
-    # # # # plot_overlayed_spectrums((spectrum_nums), plots_per_page=9, period=False, types=['spotter', 'bretschneider', 'BretHFP'], n_cols=3, metric_sv='energy', cumsum=False)
-
-    # # # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='avg_by_spec')
-    # # # # damping_seed_comparison_plot(batch_name='batch_results_20260213182532', batch_name2='batch_results_20260211181904', batch_name3='batch_results_20260304113810', batch_name4='batch_results_20260315141339', batch_name5='batch_results_20260327142504', metric='avg_tot_power', cols=3, damping_values_avg=True, col_org = True, plot_type='cor_max_diff_by_spec', damping_ref='all_scales')
     plt.show()
 ##################DONE TESTING##################
 if __name__ == '__main__':
