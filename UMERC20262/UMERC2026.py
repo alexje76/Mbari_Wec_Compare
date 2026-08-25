@@ -2291,7 +2291,7 @@ def main():
     #     "batch_name5": "batch_results_20260327142504",
     # }
     slide1dampingcurve(name='slide1dampingcurve', metric='avg_tot_power', spectrum_id=spectrum1simple, width=4, 
-                            heightper=4, title='Optimal Damping', **batches_slide2)
+                            heightper=4, legend=False, title='Optimal Damping', **batches_slide2)
 
     ##Slide2
     print('now"slide2')
